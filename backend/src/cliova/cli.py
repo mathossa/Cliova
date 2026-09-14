@@ -10,10 +10,8 @@ def main() -> None:
     parser.add_argument("--years", type=int, default=1)
     args = parser.parse_args()
 
-    engine = SimulationEngine()
-    world = WorldState.create(seed=args.seed)
-    world, _ = engine.run(world, years=args.years)
-    print(f"World seed={world.seed} year={world.year}")
+    result = SimulationEngine().run(WorldState.create(seed=args.seed), years=args.years)
+    print(f"World seed={result.world.seed} year={result.world.year}")
 
 
 if __name__ == "__main__":
