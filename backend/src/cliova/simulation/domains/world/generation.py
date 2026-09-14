@@ -1,6 +1,6 @@
 """Deterministic headless generation of authoritative physical geography."""
 
-import networkx as nx
+import networkx as nx  # type: ignore[import-untyped]
 
 from cliova.simulation.randomness import RandomSource, random_for
 from cliova.simulation.types import (
