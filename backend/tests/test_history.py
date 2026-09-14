@@ -223,9 +223,7 @@ def test_replay_produces_equivalent_history_ids_and_content() -> None:
         name = "economy"
         phase = TickPhase.ECONOMY
 
-        def step(
-            self, world: WorldState, context: TickContext, rng: RandomSource
-        ) -> DomainResult:
+        def step(self, world: WorldState, context: TickContext, rng: RandomSource) -> DomainResult:
             return DomainResult(
                 events=(
                     EventProposal(
