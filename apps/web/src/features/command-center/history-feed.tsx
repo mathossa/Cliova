@@ -10,9 +10,9 @@ export function HistoryFeed({ feed }: { feed: WorldSnapshot["feed"] }) {
           </div>
           <div className="feed-filters" aria-label="Feed filters placeholders">
             <button type="button" disabled className="selected">All</button>
-            <button type="button">State</button>
-            <button type="button">Economy</button>
-            <button type="button">Events</button>
+            <button type="button" disabled>State</button>
+            <button type="button" disabled>Economy</button>
+            <button type="button" disabled>Events</button>
           </div>
         </div>
         <div className="feed-list">
