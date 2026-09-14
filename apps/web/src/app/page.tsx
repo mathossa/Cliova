@@ -1,5 +1,5 @@
-import { CommandCenter } from "@/features/command-center/command-center";
+import { CommandCenterLoader } from "@/features/command-center/command-center-loader";
 
 export default function Home() {
-  return <CommandCenter />;
+  return <CommandCenterLoader />;
 }

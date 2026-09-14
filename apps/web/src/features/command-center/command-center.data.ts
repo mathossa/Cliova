@@ -1,3 +1,5 @@
+import type { WorldSnapshot } from "./command-center.types";
+
 export type ModuleId =
   | "terminal"
   | "directives"
@@ -112,7 +114,7 @@ export const modules: CommandCenterModule[] = [
   },
 ];
 
-export const mockWorld = {
+export const mockWorld: WorldSnapshot = {
   source: "presentation-placeholder" as const,
   worldName: "Prototype World",
   year: 2142,
@@ -132,6 +134,7 @@ export const mockWorld = {
     { time: "2142.03.02", text: "Nomad influence increased in the Steppe corridor.", tone: "warning" },
   ],
   selectedRegion: {
+    id: "northreach",
     name: "Northreach",
     description: "Placeholder region data. This panel will consume authoritative geography, population, resource and stability data once those endpoints exist.",
     population: "184,000",
@@ -163,3 +166,6 @@ export const mockWorld = {
     { label: "Dust activity", severity: "Low" },
   ],
 };
+
+// Decorative preview bars, never calculated simulation trends.
+export const previewSparkline = [34, 47, 41, 60, 55, 72, 68];

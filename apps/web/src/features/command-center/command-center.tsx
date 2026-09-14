@@ -1,10 +1,14 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import type { WorldSnapshot } from "./command-center.types";
+import { HistoryFeed } from "./history-feed";
+import { RegionOverview } from "./region-overview";
+import { WorldStatus } from "./world-status";
 
 import {
   assetPaths,
-  mockWorld,
+  previewSparkline,
   modules,
   type CommandCenterModule,
   type ModuleId,
@@ -12,17 +16,17 @@ import {
 
 const terminalHelp = "Available UI commands: help · status · inspect <entity> · why <event>. Simulation execution is not connected yet.";
 
-export function CommandCenter() {
+export function CommandCenter({ world }: { world: WorldSnapshot }) {
   const [activeModule, setActiveModule] = useState<ModuleId>("terminal");
   const [command, setCommand] = useState("");
   const [terminalLines, setTerminalLines] = useState<string[]>([
     "> status",
-    `${mockWorld.connection}. Showing presentation placeholders.`,
+    `${world.connection}. Showing presentation placeholders.`,
   ]);
-  const [selectedMarker, setSelectedMarker] = useState("northreach");
+  const [selectedMarker, setSelectedMarker] = useState(world.mapMarkers[0]?.id ?? "");
 
   const activeDefinition = modules.find((module) => module.id === activeModule) ?? modules[0];
-  const marker = mockWorld.mapMarkers.find((item) => item.id === selectedMarker);
+  const marker = world.mapMarkers.find((item) => item.id === selectedMarker);
 
   function submitCommand(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -31,7 +35,7 @@ export function CommandCenter() {
 
     let response = "Command captured by the UI scaffold. The authoritative command/directive API is not connected yet.";
     if (normalized === "help") response = terminalHelp;
-    if (normalized === "status") response = `${mockWorld.connection}. Mock snapshot year: ${mockWorld.year}.`;
+    if (normalized === "status") response = `${world.connection}. Mock snapshot year: ${world.year}.`;
     if (normalized.startsWith("inspect")) response = "Inspection UI is ready; entity lookup will be delegated to the API rather than implemented in TypeScript.";
     if (normalized.startsWith("why")) response = "Explainability placeholder: causes will be rendered from backend changes/events when available.";
 
@@ -50,14 +54,8 @@ export function CommandCenter() {
           </div>
         </div>
 
-        <div className="status-cluster" aria-label="World status placeholders">
-          <StatusCell label="World" value={mockWorld.worldName} />
-          <StatusCell label="Year" value={`${mockWorld.year} · ${mockWorld.season}`} />
-          <StatusCell label="Next tick" value={mockWorld.nextTick} accent />
-          <StatusCell label="Treasury" value={mockWorld.treasury} />
-          <StatusCell label="Status" value={mockWorld.worldStatus} warning />
-        </div>
-        <button className="icon-button" type="button" aria-label="Settings placeholder">⚙</button>
+        <WorldStatus world={world} />
+        <button className="icon-button" type="button" disabled aria-label="Settings (not available yet)">⚙</button>
       </header>
 
       <nav className="module-nav" aria-label="Cliova modules">
@@ -65,6 +63,7 @@ export function CommandCenter() {
           <button
             key={module.id}
             type="button"
+            aria-pressed={module.id === activeModule}
             className={module.id === activeModule ? "module-tab active" : "module-tab"}
             onClick={() => setActiveModule(module.id)}
           >
@@ -77,14 +76,16 @@ export function CommandCenter() {
         <section className="control-column" aria-label="Command and module workspace">
           {activeModule === "terminal" ? (
             <TerminalWorkspace
+              world={world}
+              selectedId={selectedMarker}
               command={command}
               setCommand={setCommand}
               terminalLines={terminalLines}
               submitCommand={submitCommand}
-              selectedLabel={marker?.label ?? mockWorld.selectedRegion.name}
+              selectedLabel={marker?.label ?? "No region selected"}
             />
           ) : (
-            <ModulePlaceholder module={activeDefinition} />
+            activeModule === "history" ? <HistoryFeed feed={world.feed} /> : <ModulePlaceholder module={activeDefinition} />
           )}
         </section>
 
@@ -96,10 +97,10 @@ export function CommandCenter() {
                 <h2>Operational map</h2>
               </div>
               <div className="map-toolbar" aria-label="Map controls placeholders">
-                <button type="button">Layers</button>
-                <button type="button">Filter</button>
-                <button type="button" aria-label="Zoom in">+</button>
-                <button type="button" aria-label="Zoom out">−</button>
+                <button type="button" disabled>Layers</button>
+                <button type="button" disabled>Filter</button>
+                <button type="button" disabled aria-label="Zoom in">+</button>
+                <button type="button" disabled aria-label="Zoom out">−</button>
               </div>
             </div>
 
@@ -110,13 +111,14 @@ export function CommandCenter() {
               }}
             >
               <div className="map-fallback-grid" aria-hidden="true" />
-              {mockWorld.mapMarkers.map((item) => (
+              {world.mapMarkers.map((item) => (
                 <button
                   key={item.id}
                   type="button"
                   className={`map-marker ${item.kind} ${selectedMarker === item.id ? "selected" : ""}`}
                   style={{ left: `${item.x}%`, top: `${item.y}%` }}
                   onClick={() => setSelectedMarker(item.id)}
+                  aria-pressed={selectedMarker === item.id}
                   aria-label={`Inspect ${item.label}`}
                 >
                   <span className="marker-dot" />
@@ -130,15 +132,16 @@ export function CommandCenter() {
               </div>
               <div className="map-selection">
                 <span>Selected</span>
-                <strong>{marker?.label ?? "Northreach"}</strong>
-                <small>MapLibre/data adapter placeholder</small>
+                <strong>{marker?.label ?? "No map location selected"}</strong>
+                <small>Illustrative map · preview</small>
               </div>
             </div>
           </div>
 
           <div className="dashboard-row">
             <div className="metrics-grid">
-              {mockWorld.metrics.map((metric, index) => (
+              {world.metrics.length === 0 && <p>No metrics available.</p>}
+              {world.metrics.map((metric) => (
                 <article className="metric-card panel" key={metric.label}>
                   <span className="eyebrow">{metric.label}</span>
                   <div className="metric-value-row">
@@ -146,9 +149,7 @@ export function CommandCenter() {
                     <span className={`tone-${metric.tone}`}>{metric.delta}</span>
                   </div>
                   <div className="sparkline" aria-hidden="true">
-                    {[34, 47, 41, 60, 55, 72, 68].map((height, point) => (
-                      <i key={point} style={{ height: `${Math.max(18, height - index * 3)}%` }} />
-                    ))}
+                    {previewSparkline.map((height, point) => <i key={point} style={{ height: `${height}%` }} />)}
                   </div>
                   <small>{metric.detail}</small>
                 </article>
@@ -164,7 +165,8 @@ export function CommandCenter() {
                 <span className="placeholder-badge">placeholder</span>
               </div>
               <div className="pressure-list">
-                {mockWorld.pressures.map((pressure) => (
+                {world.pressures.length === 0 && <p>No pressure data available.</p>}
+                {world.pressures.map((pressure) => (
                   <button type="button" key={pressure.label} onClick={() => setActiveModule("scenarios")}>
                     <span>{pressure.label}</span>
                     <strong className={`severity-${pressure.severity.toLowerCase()}`}>{pressure.severity}</strong>
@@ -177,39 +179,24 @@ export function CommandCenter() {
       </section>
 
       <footer className="cc-footer">
-        <span>Presentation scaffold · no simulation rules run in the browser</span>
-        <span>API: {mockWorld.connection}</span>
+        <span>Simulation Lab · presentation preview</span>
+        <span>API: {world.connection}</span>
       </footer>
     </main>
   );
 }
 
-function StatusCell({
-  label,
-  value,
-  accent = false,
-  warning = false,
-}: {
-  label: string;
-  value: string;
-  accent?: boolean;
-  warning?: boolean;
-}) {
-  return (
-    <div className="status-cell">
-      <span>{label}</span>
-      <strong className={warning ? "warning" : accent ? "accent" : undefined}>{value}</strong>
-    </div>
-  );
-}
-
 function TerminalWorkspace({
+  world,
+  selectedId,
   command,
   setCommand,
   terminalLines,
   submitCommand,
   selectedLabel,
 }: {
+  world: WorldSnapshot;
+  selectedId: string;
   command: string;
   setCommand: (value: string) => void;
   terminalLines: string[];
@@ -218,61 +205,12 @@ function TerminalWorkspace({
 }) {
   return (
     <div className="terminal-workspace">
-      <section className="panel feed-panel">
-        <div className="panel-heading compact">
-          <div>
-            <span className="eyebrow">Terminal / intel</span>
-            <h2>World feed</h2>
-          </div>
-          <div className="feed-filters" aria-label="Feed filters placeholders">
-            <button type="button" className="selected">All</button>
-            <button type="button">State</button>
-            <button type="button">Economy</button>
-            <button type="button">Events</button>
-          </div>
-        </div>
-        <div className="feed-list">
-          {mockWorld.feed.map((item) => (
-            <div className="feed-line" key={`${item.time}-${item.text}`}>
-              <time>[{item.time}]</time>
-              <span className={`tone-${item.tone}`}>{item.text}</span>
-            </div>
-          ))}
-        </div>
-      </section>
+      <HistoryFeed feed={world.feed} />
 
-      <section className="panel region-panel">
-        <div className="panel-heading compact">
-          <div>
-            <span className="eyebrow">Selected context</span>
-            <h2>{selectedLabel}</h2>
-          </div>
-          <span className="placeholder-badge">mock data</span>
-        </div>
-        <div className="region-summary">
-          <div
-            className="region-image"
-            role="img"
-            aria-label="Region artwork placeholder"
-            style={{
-              backgroundImage: `linear-gradient(180deg, rgba(8, 14, 19, .08), rgba(8, 14, 19, .2)), url(${assetPaths.regionPreview})`,
-            }}
-          >
-            <span>asset placeholder</span>
-          </div>
-          <p>{mockWorld.selectedRegion.description}</p>
-        </div>
-        <dl className="region-stats">
-          <div><dt>Population</dt><dd>{mockWorld.selectedRegion.population}</dd></div>
-          <div><dt>Primary resource</dt><dd>{mockWorld.selectedRegion.primaryResource}</dd></div>
-          <div><dt>Administration</dt><dd>{mockWorld.selectedRegion.administration}</dd></div>
-          <div><dt>Stability</dt><dd>{mockWorld.selectedRegion.stability}</dd></div>
-          <div><dt>Conditions</dt><dd>{mockWorld.selectedRegion.conditions}</dd></div>
-        </dl>
-      </section>
+      <RegionOverview region={world.selectedRegion?.id === selectedId ? world.selectedRegion : null} selectedLabel={selectedLabel} />
 
       <section className="terminal-console panel" aria-label="Terminal command placeholder">
-        <div className="console-history">
+        <div className="console-history" role="log" aria-label="Command responses">
           {terminalLines.map((line, index) => (
             <div key={`${index}-${line}`} className={line.startsWith(">") ? "console-command" : "console-response"}>
               {line}
@@ -313,7 +251,7 @@ function ModulePlaceholder({ module }: { module: CommandCenterModule }) {
           {module.plannedViews.map((view) => (
             <div className="placeholder-card" key={view}>
               <span>{view}</span>
-              <small>Authoritative data adapter pending</small>
+              <small>Not available yet</small>
             </div>
           ))}
         </div>
@@ -329,8 +267,8 @@ function ModulePlaceholder({ module }: { module: CommandCenterModule }) {
       </div>
 
       <div className="integration-note">
-        <strong>Integration boundary</strong>
-        <p>The final component should render contracts returned by FastAPI/application services. Do not recreate domain calculations in this module.</p>
+        <strong>Preview module</strong>
+        <p>This module is a preview. Its controls will become available when connected to the simulation.</p>
       </div>
     </div>
   );
