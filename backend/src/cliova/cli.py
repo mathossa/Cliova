@@ -11,7 +11,7 @@ def main() -> None:
     args = parser.parse_args()
 
     engine = SimulationEngine()
-    world = WorldState(seed=args.seed)
+    world = WorldState.create(seed=args.seed)
     world, _ = engine.run(world, years=args.years)
     print(f"World seed={world.seed} year={world.year}")
 
