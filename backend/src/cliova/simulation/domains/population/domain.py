@@ -26,9 +26,7 @@ SOCIAL_CONFIDENCE = "population.social_confidence"
 HEALTH = "population.health"
 MIGRATION_PRESSURE = "population.migration_pressure"
 
-PRESSURE_KEYS = frozenset(
-    {FOOD_SECURITY, MATERIAL_SECURITY, SAFETY, SOCIAL_CONFIDENCE, HEALTH}
-)
+PRESSURE_KEYS = frozenset({FOOD_SECURITY, MATERIAL_SECURITY, SAFETY, SOCIAL_CONFIDENCE, HEALTH})
 
 BASE_BIRTH_RATE = 0.024
 BASE_MORTALITY_RATE = 0.012
@@ -101,9 +99,7 @@ class PopulationDomain:
                     )
                 )
 
-            migration_delta = round(
-                outcome.migration_pressure - population.migration_pressure, 6
-            )
+            migration_delta = round(outcome.migration_pressure - population.migration_pressure, 6)
             if migration_delta:
                 region_changes.append(
                     SimulationChange(
