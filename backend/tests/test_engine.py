@@ -8,13 +8,13 @@ from cliova.simulation.types import SimulationChange, WorldState
 class SampleDomain:
     name = "sample"
 
-    def step(
-        self, world: WorldState, year: int, rng: RandomSource
-    ) -> list[SimulationChange]:
+    def step(self, world: WorldState, year: int, rng: RandomSource) -> list[SimulationChange]:
         assert year == world.year + 1
-        return [SimulationChange(
-            source=self.name, key="sample", delta=rng.random(), reason="seeded sample"
-        )]
+        return [
+            SimulationChange(
+                source=self.name, key="sample", delta=rng.random(), reason="seeded sample"
+            )
+        ]
 
 
 def test_engine_advances_requested_years() -> None:
@@ -54,9 +54,7 @@ def test_seeded_multi_tick_replay_and_snapshot_resume() -> None:
 
 def test_failure_does_not_advance_input_and_retry_replays() -> None:
     class FailingDomain(SampleDomain):
-        def step(
-            self, world: WorldState, year: int, rng: RandomSource
-        ) -> list[SimulationChange]:
+        def step(self, world: WorldState, year: int, rng: RandomSource) -> list[SimulationChange]:
             rng.random()
             raise RuntimeError("domain failed")
 

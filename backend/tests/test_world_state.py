@@ -45,13 +45,21 @@ def test_stable_entity_and_event_ids_survive_json() -> None:
     assert region == entity_id(restored.id, "region", "initial:0")
     cause_id = uuid5(world.id.value, "event:cause")
     change = SimulationChange(
-        source="population", key="count", delta=1, reason="growth",
-        target=society, cause_event_ids=(cause_id,),
+        source="population",
+        key="count",
+        delta=1,
+        reason="growth",
+        target=society,
+        cause_event_ids=(cause_id,),
     )
     event = SimulationEvent(
-        id=uuid5(world.id.value, "event:1"), time=SimulationTime(year=1, tick=1),
-        source="population", kind="growth", reason="test cause",
-        subjects=(region, society, polity, individual), cause_event_ids=(cause_id,),
+        id=uuid5(world.id.value, "event:1"),
+        time=SimulationTime(year=1, tick=1),
+        source="population",
+        kind="growth",
+        reason="test cause",
+        subjects=(region, society, polity, individual),
+        cause_event_ids=(cause_id,),
         changes=(change,),
     )
     assert SimulationEvent.model_validate_json(event.model_dump_json()) == event
@@ -78,10 +86,16 @@ def test_missing_metadata_is_not_silently_defaulted(field: str) -> None:
         WorldState.model_validate(data)
 
 
-@pytest.mark.parametrize("field,value", [
-    ("schema_version", 2), ("simulation_version", 2), ("rng_algorithm", "unknown"),
-    ("schema_version", True), ("simulation_version", 1.0),
-])
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("schema_version", 2),
+        ("simulation_version", 2),
+        ("rng_algorithm", "unknown"),
+        ("schema_version", True),
+        ("simulation_version", 1.0),
+    ],
+)
 def test_unsupported_metadata_requires_migration(field: str, value: object) -> None:
     data = json.loads(WorldState.create(seed=42).model_dump_json())
     data["metadata"][field] = value

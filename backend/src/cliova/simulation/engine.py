@@ -10,9 +10,7 @@ class SimulationDomain(Protocol):
 
     name: str
 
-    def step(
-        self, world: WorldState, year: int, rng: RandomSource
-    ) -> list[SimulationChange]: ...
+    def step(self, world: WorldState, year: int, rng: RandomSource) -> list[SimulationChange]: ...
 
 
 class SimulationEngine:
