@@ -153,14 +153,60 @@ class GeographyState(SimulationModel):
         raise KeyError(key)
 
 
+class PopulationNeeds(SimulationModel):
+    """Minimal aggregate conditions that demographic rules and later domains can consume."""
+
+    food_security: UnitInterval = 1.0
+    material_security: UnitInterval = 1.0
+    safety: UnitInterval = 1.0
+    social_confidence: UnitInterval = 1.0
+    health: UnitInterval = 1.0
+
+
+class RegionalPopulationState(SimulationModel):
+    """Aggregate population state for one inhabited region."""
+
+    region_id: EntityId
+    total: NonNegativeInt
+    needs: PopulationNeeds = Field(default_factory=PopulationNeeds)
+    migration_pressure: UnitInterval = 0.0
+
+    @model_validator(mode="after")
+    def validate_region_id(self) -> "RegionalPopulationState":
+        if self.region_id.kind != "region":
+            raise ValueError("RegionalPopulationState.region_id must identify a region")
+        return self
+
+
+class PopulationDomainState(SimulationModel):
+    """Region-keyed aggregate population state; absent regions are currently unpopulated."""
+
+    regions: tuple[RegionalPopulationState, ...] = ()
+
+    @model_validator(mode="after")
+    def validate_population(self) -> "PopulationDomainState":
+        region_ids = [population.region_id for population in self.regions]
+        if len(region_ids) != len(set(region_ids)):
+            raise ValueError("population region IDs must be unique")
+        return self
+
+    def region(self, region_id: EntityId) -> RegionalPopulationState:
+        """Resolve an aggregate population by its authoritative region ID."""
+        for population in self.regions:
+            if population.region_id == region_id:
+                return population
+        raise KeyError(region_id)
+
+
 class WorldState(SimulationModel):
-    """Authoritative aggregate; legacy snapshots may not yet contain geography."""
+    """Authoritative aggregate; optional domain state keeps legacy snapshots loadable."""
 
     id: EntityId
     seed: Annotated[int, Field(strict=True)]
     metadata: WorldMetadata
     time: SimulationTime
     geography: GeographyState | None = None
+    population: PopulationDomainState | None = None
 
     @model_validator(mode="after")
     def check_world_id(self) -> "WorldState":
