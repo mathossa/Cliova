@@ -195,9 +195,12 @@ class PopulationDomain:
             )
         elif change.key in PRESSURE_KEYS:
             field = _need_field(change.key)
-            needs = current.needs.model_copy(
-                update={field: _bounded_add(getattr(current.needs, field), change.delta, change.key)}
+            value = _bounded_add(
+                getattr(current.needs, field),
+                change.delta,
+                change.key,
             )
+            needs = current.needs.model_copy(update={field: value})
             updated = current.model_copy(update={"needs": needs})
         else:
             raise ValueError(f"unsupported population change key {change.key!r}")
