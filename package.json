@@ -8,6 +8,23 @@
   "scripts": {
     "dev:web": "npm --workspace apps/web run dev",
     "build:web": "npm --workspace apps/web run build",
-    "lint:web": "npm --workspace apps/web run lint"
+    "lint:web": "npm --workspace apps/web run lint",
+    "dev:api": "python -m uvicorn cliova.main:app --reload --app-dir backend/src",
+    "typecheck:web": "npm --workspace apps/web run typecheck",
+    "check:web": "npm run lint:web && npm run typecheck:web && npm run build:web",
+    "test:backend": "python -m pytest -c backend/pyproject.toml backend/tests -m \"not integration\"",
+    "test:integration": "python -m pytest -c backend/pyproject.toml backend/tests -m integration",
+    "lint:backend": "python -m ruff check backend",
+    "format:backend": "python -m ruff format backend",
+    "format:check:backend": "python -m ruff format --check backend",
+    "typecheck:backend": "python -m mypy --config-file backend/pyproject.toml backend/src",
+    "check:backend": "npm run lint:backend && npm run format:check:backend && npm run typecheck:backend && npm run test:backend",
+    "check": "npm run check:web && npm run check:backend",
+    "db:up": "docker compose -f infra/compose.yaml up -d --wait",
+    "db:down": "docker compose -f infra/compose.yaml down",
+    "health:api": "python scripts/check-health.py"
+  },
+  "engines": {
+    "node": ">=24 <25"
   }
 }

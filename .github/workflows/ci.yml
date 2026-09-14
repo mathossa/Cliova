@@ -1,0 +1,62 @@
+name: Quality
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  web:
+    name: Web validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run check:web
+  python:
+    name: Python validation (no database)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: backend/pyproject.toml
+      - run: python -m pip install -e './backend[dev]'
+      - run: npm run check:backend
+  integration:
+    name: PostgreSQL integration
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: cliova
+          POSTGRES_PASSWORD: cliova
+          POSTGRES_DB: cliova_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U cliova -d cliova_test"
+          --health-interval 2s --health-timeout 3s --health-retries 20
+    env:
+      CLIOVA_TEST_DATABASE_URL: postgresql://cliova:cliova@localhost:5432/cliova_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: backend/pyproject.toml
+      - run: python -m pip install -e './backend[dev]'
+      - run: npm run test:integration

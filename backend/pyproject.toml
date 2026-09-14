@@ -25,7 +25,8 @@ dev = [
   "pytest>=8,<10",
   "httpx>=0.28,<1",
   "ruff>=0.9,<1",
-  "mypy>=1.14,<2"
+  "mypy>=1.14,<2",
+  "psycopg[binary]>=3.2,<4"
 ]
 
 [project.scripts]
@@ -34,7 +35,19 @@ cliova = "cliova.cli:main"
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
+addopts = "--strict-markers"
+markers = ["integration: requires a running PostgreSQL database"]
 
 [tool.ruff]
 line-length = 100
 target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/cliova"]

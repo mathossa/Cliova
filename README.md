@@ -20,3 +20,17 @@ De eerste ontwikkelfase is **simulation first**: een reproduceerbare, uitlegbare
 Cliova start als een **modulaire monoliet**, niet als microservices. De webclient en Python-backend zijn afzonderlijke runtimes, maar de simulatie zelf blijft één deterministische core. Simulation domains communiceren via expliciete changes/events en mogen niet ongecontroleerd elkaars interne state muteren.
 
 Zie `docs/architecture/application-structure.md` en `docs/vision/README.md`.
+
+## Ontwikkelen en testen
+
+Zie [CONTRIBUTING.md](CONTRIBUTING.md) voor de volledige setup met Node 24,
+Python 3.12 en optioneel PostgreSQL via Docker. Na setup:
+
+```bash
+npm run dev:api  # terminal 1, met .venv actief
+npm run dev:web  # terminal 2
+npm run check   # web + backend, zonder database
+```
+
+Pull requests worden automatisch gecontroleerd met aparte web-, Python- en
+PostgreSQL-integratiejobs.
