@@ -221,7 +221,10 @@ class SimulationEngine:
             SimulationDiagnostic(
                 phase=TickPhase.INGEST_INPUTS.value,
                 source="engine",
-                message=f"completed inputs={len(inputs)} changes={sum(len(i.changes) for i in inputs)}",
+                message=(
+                    f"completed inputs={len(inputs)} "
+                    f"changes={sum(len(i.changes) for i in inputs)}"
+                ),
             )
         )
         return working
