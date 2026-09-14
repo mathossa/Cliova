@@ -147,10 +147,11 @@ class SimulationInput(SimulationModel):
 
 
 class SimulationExplanation(SimulationModel):
-    """Structured human-facing causal explanation emitted during a tick."""
+    """Structured human-facing causal explanation emitted during a tick or history query."""
 
     source: NonEmptyString
     message: NonEmptyString
+    event_id: UUID | None = None
     cause_event_ids: tuple[UUID, ...] = ()
 
 
