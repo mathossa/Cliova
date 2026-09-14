@@ -315,11 +315,7 @@ def _calculate_outcome(
     labour = population.total * LABOUR_SHARE
     potential = region.resource_potential(rule.potential_key)
     capacity = _quantity(
-        labour
-        * rule.output_per_worker
-        * potential
-        * capability_modifier
-        * circumstance_modifier
+        labour * rule.output_per_worker * potential * capability_modifier * circumstance_modifier
     )
     production = capacity
     demand = _quantity(population.total * rule.demand_per_capita)
@@ -387,16 +383,13 @@ def _region_causes(context: TickContext, region_id: EntityId) -> tuple[UUID, ...
     )
 
 
-def _significant_event_kind(
-    current: ResourceEconomyState, outcome: ResourceOutcome
-) -> str | None:
+def _significant_event_kind(current: ResourceEconomyState, outcome: ResourceOutcome) -> str | None:
     was_shortage = current.shortage_severity >= SIGNIFICANT_SHORTAGE_SEVERITY
     is_shortage = outcome.shortage_severity >= SIGNIFICANT_SHORTAGE_SEVERITY
 
     if is_shortage and (
         not was_shortage
-        or abs(outcome.shortage_severity - current.shortage_severity)
-        >= SIGNIFICANT_SEVERITY_CHANGE
+        or abs(outcome.shortage_severity - current.shortage_severity) >= SIGNIFICANT_SEVERITY_CHANGE
     ):
         return "resource-shortage"
     if was_shortage and not is_shortage:
