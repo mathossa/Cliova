@@ -167,7 +167,7 @@ button { color: inherit; }
 .cc-workspace {
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(400px, 40%) minmax(0, 60%);
+  grid-template-columns: minmax(360px, 2fr) minmax(0, 3fr);
   gap: 10px;
   padding: 10px 12px;
 }
@@ -461,7 +461,7 @@ button { color: inherit; }
 .metrics-grid {
   min-width: 0;
   display: grid;
-  grid-template-columns: repeat(5, minmax(112px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
   gap: 8px;
 }
 .metric-card {
@@ -585,7 +585,7 @@ button { color: inherit; }
 @media (max-width: 1380px) {
   .brand-block { min-width: 210px; }
   .status-cluster { grid-template-columns: repeat(5, minmax(110px, 1fr)); overflow-x: auto; }
-  .metrics-grid { grid-template-columns: repeat(3, minmax(115px, 1fr)); }
+  .dashboard-row { grid-template-columns: minmax(0, 1fr); }
   .metric-card:nth-child(4), .metric-card:nth-child(5) { min-height: 122px; }
 }
 
@@ -615,4 +615,23 @@ button { color: inherit; }
   .map-legend { display: none; }
   .placeholder-grid { grid-template-columns: 1fr; }
   .cc-footer { align-items: flex-start; flex-direction: column; padding: 8px 10px; }
+}
+
+/* Panels must shrink with the viewport without forcing the document wider. */
+.panel-heading { flex-wrap: wrap; }
+.panel-heading > div { min-width: 0; }
+.feed-line { grid-template-columns: 82px minmax(0, 1fr); }
+.feed-line span, .console-history, .region-stats, .module-description { overflow-wrap: anywhere; }
+.map-toolbar { flex-wrap: wrap; }
+button:disabled { cursor: not-allowed; opacity: .5; }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 3px; }
+.world-load-screen { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
+.world-load-screen .panel { width: min(100%, 560px); padding: 24px; }
+.world-load-screen p { color: var(--muted); line-height: 1.6; }
+.world-load-screen button { padding: 10px 16px; color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: 4px; cursor: pointer; }
+@media (max-width: 1100px) {
+  .control-column { min-height: 0; }
+  .data-column { min-height: 0; grid-template-rows: minmax(420px, 1fr) auto; }
+  .terminal-workspace { grid-template-rows: auto auto auto; }
+  .module-placeholder { min-height: 0; }
 }
