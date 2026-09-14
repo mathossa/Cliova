@@ -218,7 +218,11 @@ def test_zero_population_has_no_births_or_outbound_migration_pressure() -> None:
     assert world.population is not None
     fertile = world.geography.region("fertile-lowlands")
     populations = list(world.population.regions)
-    index = next(i for i, population in enumerate(populations) if population.region_id == fertile.id)
+    index = next(
+        i
+        for i, population in enumerate(populations)
+        if population.region_id == fertile.id
+    )
     populations[index] = populations[index].model_copy(
         update={"total": 0, "migration_pressure": 0.75}
     )
