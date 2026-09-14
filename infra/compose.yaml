@@ -1,0 +1,18 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: cliova
+      POSTGRES_PASSWORD: cliova
+      POSTGRES_DB: cliova
+    ports:
+      - "127.0.0.1:${CLIOVA_POSTGRES_PORT:-5434}:5432"
+    volumes:
+      - cliova-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cliova -d cliova"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+volumes:
+  cliova-postgres:

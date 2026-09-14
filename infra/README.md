@@ -1,5 +1,9 @@
 # Infrastructure
 
-Infrastructure is intentionally light during the simulation-lab phase. Local Docker/PostgreSQL, deployment manifests, backups and worker scheduling should be added here only when a concrete runtime requirement exists.
+`compose.yaml` provides local PostgreSQL 17 on loopback port 5434 with a readiness
+check and named volume. Use root `npm run db:up` / `npm run db:down` commands.
+See [CONTRIBUTING.md](../CONTRIBUTING.md) for configuration and integration tests.
 
-Do not split simulation domains into deployable microservices without measured scaling or operational reasons.
+The current simulation and API run without a database. This service establishes
+the development/test infrastructure for future persistence, not application storage.
+Keep deployment and scheduling separate from simulation domain rules.
