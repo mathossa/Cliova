@@ -11,7 +11,6 @@ from cliova.simulation.types import (
     EconomyDomainState,
     EntityId,
     EventProposal,
-    RegionalEconomyState,
     RegionalPopulationState,
     RegionState,
     ResourceEconomyState,
