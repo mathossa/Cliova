@@ -2,7 +2,7 @@
 
 from uuid import UUID
 
-import networkx as nx
+import networkx as nx  # type: ignore[import-untyped]
 
 from cliova.simulation.types import EntityId, GeographyState
 
