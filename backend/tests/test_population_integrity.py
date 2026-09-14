@@ -16,5 +16,8 @@ def test_world_state_rejects_population_region_outside_geography() -> None:
     orphan: EntityId = entity_id(world.id, "region", "orphan-region")
     payload["population"]["regions"][0]["region_id"] = orphan.model_dump(mode="python")
 
-    with pytest.raises(ValueError, match="population regions must reference regions in world geography"):
+    with pytest.raises(
+        ValueError,
+        match="population regions must reference regions in world geography",
+    ):
         WorldState.model_validate(payload)
