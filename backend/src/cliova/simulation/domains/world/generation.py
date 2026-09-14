@@ -1,7 +1,5 @@
 """Deterministic headless generation of authoritative physical geography."""
 
-from typing import TypeVar
-
 import networkx as nx
 
 from cliova.simulation.randomness import RandomSource, random_for
@@ -36,10 +34,8 @@ BIOMES: tuple[BiomeKind, ...] = (
     "alpine",
 )
 
-T = TypeVar("T")
 
-
-def _choice(rng: RandomSource, values: tuple[T, ...]) -> T:
+def _choice[T](rng: RandomSource, values: tuple[T, ...]) -> T:
     index = min(int(rng.random() * len(values)), len(values) - 1)
     return values[index]
 
@@ -71,7 +67,8 @@ def generate_geography(*, world_id: EntityId, seed: int) -> GeographyState:
         for index in range(REGION_COUNT)
     )
 
-    # NetworkX supplies the generic graph foundation; only serialized Cliova edges are authoritative.
+    # NetworkX supplies the generic graph foundation.
+    # Only serialized Cliova edges are authoritative.
     graph = nx.cycle_graph(REGION_COUNT)
     extra_candidates = {
         tuple(sorted((index, (index + 2) % REGION_COUNT))) for index in range(REGION_COUNT)
