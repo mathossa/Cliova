@@ -282,7 +282,7 @@ def _parse_change_key(key: str) -> tuple[ResourceKind, str]:
     field = parts[2]
     if resource not in RESOURCE_KINDS or field not in RESOURCE_FIELDS:
         raise ValueError(f"unsupported economy change key {key!r}")
-    return resource, field  # type: ignore[return-value]
+    return resource, field
 
 
 def _neutral_capability_modifier(
