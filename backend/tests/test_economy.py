@@ -49,9 +49,10 @@ def test_economy_initialization_and_normal_production_are_regional_and_serializa
     fertile = world.geography.region("fertile-lowlands")
     dry = world.geography.region("dry-basin")
 
-    assert tuple(
-        resource.resource for resource in world.economy.region(fertile.id).resources
-    ) == RESOURCE_KINDS
+    assert (
+        tuple(resource.resource for resource in world.economy.region(fertile.id).resources)
+        == RESOURCE_KINDS
+    )
     assert WorldState.model_validate_json(world.model_dump_json()) == world
 
     result = SimulationEngine((EconomyDomain(),)).step(world)
@@ -179,9 +180,7 @@ def test_recovery_clears_shortage_and_rebuilds_food_security_pressure() -> None:
     recovered_food = recovered.world.economy.region(dry.id).resource("food")
     assert recovered_food.shortage_severity == 0.0
     assert any(
-        event.source == "economy"
-        and event.kind == "resource-recovery"
-        and dry.id in event.subjects
+        event.source == "economy" and event.kind == "resource-recovery" and dry.id in event.subjects
         for event in recovered.events
     )
 
