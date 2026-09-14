@@ -99,9 +99,7 @@ class SimulationEngine:
         }
         self._rng_factory = rng_factory
 
-    def step(
-        self, world: WorldState, *, inputs: Iterable[SimulationInput] = ()
-    ) -> TickResult:
+    def step(self, world: WorldState, *, inputs: Iterable[SimulationInput] = ()) -> TickResult:
         queued_inputs = tuple(inputs)
         next_time = world.time.next_year()
         working = world
@@ -222,8 +220,7 @@ class SimulationEngine:
                 phase=TickPhase.INGEST_INPUTS.value,
                 source="engine",
                 message=(
-                    f"completed inputs={len(inputs)} "
-                    f"changes={sum(len(i.changes) for i in inputs)}"
+                    f"completed inputs={len(inputs)} changes={sum(len(i.changes) for i in inputs)}"
                 ),
             )
         )

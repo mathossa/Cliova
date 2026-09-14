@@ -148,9 +148,7 @@ def test_domain_cannot_emit_change_owned_by_another_domain() -> None:
     class BadDomain(SampleDomain):
         def step(self, world: WorldState, context: TickContext, rng: RandomSource) -> DomainResult:
             return DomainResult(
-                changes=(
-                    SimulationChange(source="other", key="x", delta=1, reason="invalid"),
-                )
+                changes=(SimulationChange(source="other", key="x", delta=1, reason="invalid"),)
             )
 
     with pytest.raises(TickExecutionError, match="cannot emit change owned by"):
