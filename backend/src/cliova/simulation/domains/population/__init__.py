@@ -14,6 +14,10 @@ from cliova.simulation.domains.population.initialization import (
     DEFAULT_INITIAL_POPULATION,
     initialize_population,
 )
+from cliova.simulation.domains.population.pressure import (
+    PopulationNeedTarget,
+    population_need_input,
+)
 
 __all__ = [
     "DEFAULT_INITIAL_POPULATION",
@@ -25,5 +29,7 @@ __all__ = [
     "SAFETY",
     "SOCIAL_CONFIDENCE",
     "PopulationDomain",
+    "PopulationNeedTarget",
     "initialize_population",
+    "population_need_input",
 ]
