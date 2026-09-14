@@ -82,9 +82,7 @@ def test_seeded_geography_applies_physical_biases_without_fixed_templates() -> N
     assert all(region.water_access >= 0.48 for region in wetlands)
     assert all(region.resource_potential("metal_ores") >= 0.44 for region in highlands)
 
-    arid_forest_or_wetland = mean(
-        region.terrain in {"forest", "wetland"} for region in arid
-    )
+    arid_forest_or_wetland = mean(region.terrain in {"forest", "wetland"} for region in arid)
     tropical_forest_or_wetland = mean(
         region.terrain in {"forest", "wetland"} for region in tropical
     )
