@@ -44,7 +44,7 @@ jobs:
           POSTGRES_DB: cliova_test
         ports: ['5432:5432']
         options: >-
-          --health-cmd 'pg_isready -U cliova -d cliova_test'
+          --health-cmd "pg_isready -U cliova -d cliova_test"
           --health-interval 2s --health-timeout 3s --health-retries 20
     env:
       CLIOVA_TEST_DATABASE_URL: postgresql://cliova:cliova@localhost:5432/cliova_test
