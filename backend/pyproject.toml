@@ -1,0 +1,40 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "cliova-backend"
+version = "0.0.0"
+description = "Authoritative simulation and API backend for Cliova"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi>=0.115,<1",
+  "uvicorn[standard]>=0.34,<1",
+  "pydantic>=2.10,<3",
+  "numpy>=2,<3",
+  "networkx>=3.4,<4"
+]
+
+[project.optional-dependencies]
+simulation = [
+  "mesa>=3,<4",
+  "simpy>=4,<5",
+  "ortools>=9,<10"
+]
+dev = [
+  "pytest>=8,<10",
+  "httpx>=0.28,<1",
+  "ruff>=0.9,<1",
+  "mypy>=1.14,<2"
+]
+
+[project.scripts]
+cliova = "cliova.cli:main"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
