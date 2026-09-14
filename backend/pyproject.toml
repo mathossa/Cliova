@@ -23,7 +23,7 @@ simulation = [
 ]
 dev = [
   "pytest>=8,<10",
-  "httpx>=0.28,<1",
+  "httpx2>=2,<3",
   "ruff>=0.9,<1",
   "mypy>=1.14,<2",
   "psycopg[binary]>=3.2,<4"

@@ -103,7 +103,7 @@ class WorldState(SimulationModel):
 
 
 class SimulationChange(SimulationModel):
-    """A proposed numeric change; interpretation/application belongs to its owner."""
+    """A proposed numeric change applied centrally by its owning simulation domain."""
 
     source: NonEmptyString
     key: NonEmptyString
@@ -124,3 +124,66 @@ class SimulationEvent(SimulationModel):
     subjects: tuple[EntityId, ...] = ()
     cause_event_ids: tuple[UUID, ...] = ()
     changes: tuple[SimulationChange, ...] = ()
+
+
+class EventProposal(SimulationModel):
+    """Domain-emitted event data; the engine assigns its deterministic event ID/time/source."""
+
+    kind: NonEmptyString
+    reason: NonEmptyString
+    subjects: tuple[EntityId, ...] = ()
+    cause_event_ids: tuple[UUID, ...] = ()
+    changes: tuple[SimulationChange, ...] = ()
+
+
+class SimulationInput(SimulationModel):
+    """Ordered player/world input queued for the next tick."""
+
+    source: NonEmptyString
+    kind: NonEmptyString
+    reason: NonEmptyString
+    subjects: tuple[EntityId, ...] = ()
+    changes: tuple[SimulationChange, ...] = ()
+
+
+class SimulationExplanation(SimulationModel):
+    """Structured human-facing causal explanation emitted during a tick."""
+
+    source: NonEmptyString
+    message: NonEmptyString
+    cause_event_ids: tuple[UUID, ...] = ()
+
+
+class SimulationDiagnostic(SimulationModel):
+    """Deterministic debug information for replaying and inspecting a tick."""
+
+    phase: NonEmptyString
+    source: NonEmptyString
+    message: NonEmptyString
+
+
+class DomainResult(SimulationModel):
+    """A domain proposal. No authoritative state is committed by returning this model."""
+
+    changes: tuple[SimulationChange, ...] = ()
+    events: tuple[EventProposal, ...] = ()
+    explanations: tuple[SimulationExplanation, ...] = ()
+    diagnostics: tuple[SimulationDiagnostic, ...] = ()
+
+
+class TickResult(SimulationModel):
+    """Authoritative committed result of exactly one completed tick."""
+
+    world: WorldState
+    phases: tuple[NonEmptyString, ...]
+    changes: tuple[SimulationChange, ...] = ()
+    events: tuple[SimulationEvent, ...] = ()
+    explanations: tuple[SimulationExplanation, ...] = ()
+    diagnostics: tuple[SimulationDiagnostic, ...] = ()
+
+
+class SimulationRunResult(SimulationModel):
+    """Headless multi-tick result with each committed tick retained for inspection."""
+
+    world: WorldState
+    ticks: tuple[TickResult, ...] = ()
