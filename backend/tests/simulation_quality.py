@@ -81,7 +81,11 @@ def assert_core_invariants(trace: HeadlessTrace) -> None:
     """Check only dependency-independent invariants valid for every simulation domain."""
     assert_monotonic_ticks(trace)
     assert_unique_event_ids(trace)
-    assert_stable_entity_ids(trace.initial_world, seed=trace.seed, tick=trace.initial_world.time.tick)
+    assert_stable_entity_ids(
+        trace.initial_world,
+        seed=trace.seed,
+        tick=trace.initial_world.time.tick,
+    )
     assert_finite_values(trace.initial_world, seed=trace.seed, tick=trace.initial_world.time.tick)
 
     expected_world_id = trace.initial_world.id
