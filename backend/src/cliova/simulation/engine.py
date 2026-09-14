@@ -203,9 +203,7 @@ class SimulationEngine:
             changes.extend(queued.changes)
             cause_event_ids = tuple(
                 dict.fromkeys(
-                    cause_id
-                    for change in queued.changes
-                    for cause_id in change.cause_event_ids
+                    cause_id for change in queued.changes for cause_id in change.cause_event_ids
                 )
             )
             events.append(
