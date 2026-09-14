@@ -274,6 +274,17 @@ class WorldState(SimulationModel):
             raise ValueError("WorldState.id must identify a world")
         return self
 
+    @model_validator(mode="after")
+    def validate_population_region_references(self) -> "WorldState":
+        if self.population is None or not self.population.regions:
+            return self
+        if self.geography is None:
+            raise ValueError("populated world state requires geography")
+        region_ids = {region.id for region in self.geography.regions}
+        if any(population.region_id not in region_ids for population in self.population.regions):
+            raise ValueError("population regions must reference regions in world geography")
+        return self
+
     @property
     def year(self) -> int:
         """Read-only convenience for the existing headless CLI."""
