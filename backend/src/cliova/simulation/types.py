@@ -8,7 +8,11 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 NonNegativeInt = Annotated[int, Field(strict=True, ge=0)]
 NonEmptyString = Annotated[str, Field(strict=True, min_length=1)]
+UnitInterval = Annotated[float, Field(ge=0.0, le=1.0)]
+PositiveFloat = Annotated[float, Field(gt=0.0)]
 EntityKind = Literal["world", "region", "society", "polity", "individual"]
+TerrainKind = Literal["plain", "plateau", "basin", "highland", "forest", "wetland", "coast"]
+BiomeKind = Literal["temperate", "semi_arid", "arid", "boreal", "tropical", "alpine"]
 RNG_ALGORITHM: Final = "pcg64-sha256-v1"
 
 
@@ -63,13 +67,100 @@ class WorldMetadata(SimulationModel):
         return value
 
 
+class ResourcePotential(SimulationModel):
+    """A physical resource opportunity, not current extraction or production."""
+
+    resource: NonEmptyString
+    potential: UnitInterval
+
+
+class RegionState(SimulationModel):
+    """Authoritative headless geography inputs exposed to downstream domains."""
+
+    id: EntityId
+    key: NonEmptyString
+    terrain: TerrainKind
+    biome: BiomeKind
+    habitability: UnitInterval
+    water_access: UnitInterval
+    climate_pressure: UnitInterval
+    resources: tuple[ResourcePotential, ...] = ()
+
+    @model_validator(mode="after")
+    def validate_region(self) -> "RegionState":
+        if self.id.kind != "region":
+            raise ValueError("RegionState.id must identify a region")
+        resource_names = [resource.resource for resource in self.resources]
+        if len(resource_names) != len(set(resource_names)):
+            raise ValueError("region resource names must be unique")
+        return self
+
+    def resource_potential(self, resource: str) -> float:
+        """Return physical potential without implying that the resource is being extracted."""
+        for candidate in self.resources:
+            if candidate.resource == resource:
+                return candidate.potential
+        return 0.0
+
+
+class RegionConnection(SimulationModel):
+    """Serializable authoritative travel adjacency between two regions."""
+
+    a: EntityId
+    b: EntityId
+    travel_cost: PositiveFloat
+
+    @model_validator(mode="after")
+    def validate_connection(self) -> "RegionConnection":
+        if self.a.kind != "region" or self.b.kind != "region":
+            raise ValueError("region connections must reference region IDs")
+        if self.a == self.b:
+            raise ValueError("region connections cannot be self-referential")
+        return self
+
+
+class GeographyState(SimulationModel):
+    """Deterministic serializable physical-world state; graph objects are adapters only."""
+
+    regions: tuple[RegionState, ...]
+    connections: tuple[RegionConnection, ...]
+
+    @model_validator(mode="after")
+    def validate_geography(self) -> "GeographyState":
+        region_ids = [region.id for region in self.regions]
+        region_keys = [region.key for region in self.regions]
+        if len(region_ids) != len(set(region_ids)):
+            raise ValueError("region IDs must be unique")
+        if len(region_keys) != len(set(region_keys)):
+            raise ValueError("region keys must be unique")
+
+        known_ids = set(region_ids)
+        seen_connections: set[frozenset[EntityId]] = set()
+        for connection in self.connections:
+            if connection.a not in known_ids or connection.b not in known_ids:
+                raise ValueError("region connections must reference regions in the same geography")
+            edge = frozenset((connection.a, connection.b))
+            if edge in seen_connections:
+                raise ValueError("duplicate undirected region connection")
+            seen_connections.add(edge)
+        return self
+
+    def region(self, key: str) -> RegionState:
+        """Resolve a stable region key without exposing a graph implementation."""
+        for region in self.regions:
+            if region.key == key:
+                return region
+        raise KeyError(key)
+
+
 class WorldState(SimulationModel):
-    """Minimal aggregate; domain-owned state is added when its rules are introduced."""
+    """Authoritative aggregate; legacy snapshots may not yet contain geography."""
 
     id: EntityId
     seed: Annotated[int, Field(strict=True)]
     metadata: WorldMetadata
     time: SimulationTime
+    geography: GeographyState | None = None
 
     @model_validator(mode="after")
     def check_world_id(self) -> "WorldState":
@@ -92,13 +183,19 @@ class WorldState(SimulationModel):
         name = json.dumps(
             ["cliova.world.v1", seed, world_key], ensure_ascii=True, separators=(",", ":")
         )
+        world_id = EntityId(kind="world", value=uuid5(NAMESPACE_URL, name))
+
+        # Import lazily so the world domain can depend on shared simulation primitives.
+        from cliova.simulation.domains.world.generation import generate_geography
+
         return cls(
-            id=EntityId(kind="world", value=uuid5(NAMESPACE_URL, name)),
+            id=world_id,
             seed=seed,
             metadata=WorldMetadata(
                 schema_version=1, simulation_version=1, rng_algorithm=RNG_ALGORITHM
             ),
             time=SimulationTime(),
+            geography=generate_geography(world_id=world_id, seed=seed),
         )
 
 
