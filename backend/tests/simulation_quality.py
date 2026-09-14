@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from math import isfinite
 from statistics import median
 from time import perf_counter_ns
-from typing import Any
+from uuid import UUID
 
 from pydantic import BaseModel
 
@@ -185,7 +185,7 @@ def assert_monotonic_ticks(trace: HeadlessTrace) -> None:
 
 
 def assert_unique_event_ids(trace: HeadlessTrace) -> None:
-    seen: dict[object, int] = {}
+    seen: dict[UUID, int] = {}
     for tick_result in trace.run.ticks:
         tick = tick_result.world.time.tick
         for event in tick_result.events:
@@ -250,7 +250,7 @@ def measure_tick_runtime(
     return TickTiming(durations_ns=tuple(durations))
 
 
-def _iter_entity_ids(value: object, path: str = "world"):
+def _iter_entity_ids(value: object, path: str = "world") -> Iterator[tuple[str, EntityId]]:
     if isinstance(value, EntityId):
         yield path, value
         return
@@ -267,7 +267,7 @@ def _iter_entity_ids(value: object, path: str = "world"):
             yield from _iter_entity_ids(item, f"{path}[{index}]")
 
 
-def _iter_floats(value: object, path: str = "root"):
+def _iter_floats(value: object, path: str = "root") -> Iterator[tuple[str, float]]:
     if isinstance(value, float):
         yield path, value
         return
@@ -284,7 +284,9 @@ def _iter_floats(value: object, path: str = "root"):
             yield from _iter_floats(item, f"{path}[{index}]")
 
 
-def _first_difference(left: object, right: object, path: str = "root") -> tuple[str, object, object] | None:
+def _first_difference(
+    left: object, right: object, path: str = "root"
+) -> tuple[str, object, object] | None:
     if isinstance(left, BaseModel) and isinstance(right, BaseModel):
         return _first_difference(
             left.model_dump(mode="python"), right.model_dump(mode="python"), path
