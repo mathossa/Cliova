@@ -1,9 +1,14 @@
 """Deterministic regional production, consumption, reserves and shortages."""
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from uuid import UUID
 
+from cliova.simulation.domains.population import (
+    FOOD_SECURITY,
+    PopulationNeedTarget,
+    population_need_input,
+)
 from cliova.simulation.engine import TickContext, TickPhase
 from cliova.simulation.randomness import RandomSource
 from cliova.simulation.types import (
@@ -17,6 +22,7 @@ from cliova.simulation.types import (
     ResourceKind,
     SimulationChange,
     SimulationDiagnostic,
+    SimulationEvent,
     SimulationExplanation,
     SimulationInput,
     WorldState,
@@ -218,53 +224,47 @@ class EconomyDomain:
         return world.model_copy(update={"economy": economy})
 
 
-def population_food_pressure_input(world: WorldState) -> SimulationInput | None:
-    """Translate economic food shortage into #6's existing population change interface.
+def population_food_pressure_input(
+    world: WorldState,
+    *,
+    events: Iterable[SimulationEvent] = (),
+) -> SimulationInput | None:
+    """Translate food shortage into population-owned next-tick need changes.
 
-    Economy does not mutate population state. The returned input is intended for the
-    next tick's ingest phase, where PopulationDomain owns and applies FOOD_SECURITY.
+    Economy supplies desired food-security conditions through the population boundary
+    instead of reading or mutating population need internals. Relevant shortage or
+    recovery events are retained as causes for the next tick's pressure input.
     """
     if world.economy is None or world.population is None:
         return None
 
-    # Import at the boundary to keep the economy state model independent of population rules.
-    from cliova.simulation.domains.population import FOOD_SECURITY
-
-    changes: list[SimulationChange] = []
-    subjects: list[EntityId] = []
+    event_batch = tuple(events)
+    targets: list[PopulationNeedTarget] = []
     for regional_economy in world.economy.regions:
         try:
-            population = world.population.region(regional_economy.region_id)
             food = regional_economy.resource("food")
         except KeyError:
             continue
 
-        target_security = round(1.0 - food.shortage_severity, 6)
-        delta = round(target_security - population.needs.food_security, 6)
-        if not delta:
-            continue
-        changes.append(
-            SimulationChange(
-                source="population",
+        targets.append(
+            PopulationNeedTarget(
+                region_id=regional_economy.region_id,
                 key=FOOD_SECURITY,
-                delta=delta,
+                value=round(1.0 - food.shortage_severity, 6),
                 reason=(
                     f"food shortage severity {food.shortage_severity:.3f} "
                     "changed regional food security"
                 ),
-                target=regional_economy.region_id,
+                cause_event_ids=_food_pressure_causes(event_batch, regional_economy.region_id),
             )
         )
-        subjects.append(regional_economy.region_id)
 
-    if not changes:
-        return None
-    return SimulationInput(
+    return population_need_input(
+        world,
         source="economy",
         kind="food-security-pressure",
         reason="Regional food availability changed population food security",
-        subjects=tuple(subjects),
-        changes=tuple(changes),
+        targets=targets,
     )
 
 
@@ -380,6 +380,22 @@ def _region_causes(context: TickContext, region_id: EntityId) -> tuple[UUID, ...
         for event in context.prior_events
         if region_id in event.subjects
         or any(change.target == region_id for change in event.changes)
+    )
+
+
+def _food_pressure_causes(
+    events: Iterable[SimulationEvent], region_id: EntityId
+) -> tuple[UUID, ...]:
+    shortage_key = resource_change_key("food", "shortage_severity")
+    return tuple(
+        event.id
+        for event in events
+        if event.source == "economy"
+        and event.kind in {"resource-shortage", "resource-recovery"}
+        and region_id in event.subjects
+        and any(
+            change.target == region_id and change.key == shortage_key for change in event.changes
+        )
     )
 
 
