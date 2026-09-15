@@ -1,7 +1,7 @@
 """Deterministic derived rendering for the strategic physical base map.
 
 The renderer consumes persisted Cliova generation metadata and presentation extent. For
-WorldEngine-backed worlds it reuses WorldEngine's own ancient-map renderer to regenerate a
+WorldEngine-backed worlds it reuses WorldEngine's satellite/terrain renderer to regenerate a
 disposable physical asset; authoritative simulation state is never mutated.
 """
 
@@ -12,19 +12,19 @@ from html import escape
 from cliova.api.v1.map_projection import MAP_RENDER_VERSION
 from cliova.simulation.domains.world.worldengine_adapter import (
     WorldEngineConfig,
-    render_ancient_map_png,
+    render_strategic_terrain_png,
 )
 from cliova.simulation.types import PhysicalGenerationMetadata, WorldState
 
 _BIOME_FILL = {
-    "temperate": "#73865e",
-    "semi_arid": "#9b8859",
-    "arid": "#a69062",
-    "boreal": "#526f66",
-    "tropical": "#527a52",
-    "alpine": "#8b8f89",
+    "temperate": "#718b5a",
+    "semi_arid": "#a78d58",
+    "arid": "#c2a96c",
+    "boreal": "#587565",
+    "tropical": "#4d7d4e",
+    "alpine": "#90948c",
 }
-_OCEAN_FILL = "#17394a"
+_OCEAN_FILL = "#183f53"
 
 
 def _parameter_values(
@@ -74,24 +74,48 @@ def _worldengine_svg(world: WorldState, generation: PhysicalGenerationMetadata) 
         raise ValueError("world has no strategic presentation geometry")
 
     presentation = geography.presentation
-    png = render_ancient_map_png(seed=generation.world_seed, config=_worldengine_config(generation))
+    png = render_strategic_terrain_png(
+        seed=generation.world_seed,
+        config=_worldengine_config(generation),
+    )
     encoded = b64encode(png).decode("ascii")
     source = escape(
         f"{generation.generator}:{generation.adapter_version}:{generation.upstream_version}"
     )
     metadata = (
-        f"Cliova derived strategic base; render={MAP_RENDER_VERSION}; source={source}"
+        f"Cliova derived strategic terrain; render={MAP_RENDER_VERSION}; source={source}"
     )
+    texture_seed = (generation.worldengine_seed % 997) + 1
     return (
         '<svg xmlns="http://www.w3.org/2000/svg" '
         f'viewBox="0 0 {presentation.width} {presentation.height}" '
         f'width="{presentation.width}" height="{presentation.height}" '
-        f'data-render-version="{MAP_RENDER_VERSION}">'
+        f'data-render-version="{MAP_RENDER_VERSION}" '
+        'data-render-theme="stylized-strategic-terrain">'
         f"<metadata>{metadata}</metadata>"
-        f'<rect width="{presentation.width}" height="{presentation.height}" fill="#193641"/>'
+        "<defs>"
+        '<filter id="terrain-grade" x="0" y="0" width="100%" height="100%">'
+        '<feColorMatrix type="saturate" values="1.18"/>'
+        '<feComponentTransfer>'
+        '<feFuncR type="gamma" amplitude="1.06" exponent="0.92" offset="0.01"/>'
+        '<feFuncG type="gamma" amplitude="1.06" exponent="0.92" offset="0.01"/>'
+        '<feFuncB type="gamma" amplitude="1.03" exponent="0.96" offset="0"/>'
+        "</feComponentTransfer>"
+        "</filter>"
+        '<filter id="terrain-texture" x="0" y="0" width="100%" height="100%">'
+        f'<feTurbulence type="fractalNoise" baseFrequency="0.32" numOctaves="2" '
+        f'seed="{texture_seed}"/>'
+        '<feColorMatrix values="0 0 0 0 .52 0 0 0 0 .48 0 0 0 0 .35 0 0 0 .12 0"/>'
+        "</filter>"
+        "</defs>"
+        f'<rect width="{presentation.width}" height="{presentation.height}" '
+        f'fill="{_OCEAN_FILL}"/>'
         f'<image x="0" y="0" width="{presentation.width}" height="{presentation.height}" '
-        'preserveAspectRatio="none" '
+        'preserveAspectRatio="none" filter="url(#terrain-grade)" '
         f'href="data:image/png;base64,{encoded}"/>'
+        f'<rect width="{presentation.width}" height="{presentation.height}" '
+        'filter="url(#terrain-texture)" opacity="0.28" '
+        'style="mix-blend-mode:soft-light"/>'
         "</svg>"
     )
 
@@ -119,8 +143,10 @@ def _fallback_svg(world: WorldState) -> str:
         '<svg xmlns="http://www.w3.org/2000/svg" '
         f'viewBox="0 0 {presentation.width} {presentation.height}" '
         f'width="{presentation.width}" height="{presentation.height}" '
-        f'data-render-version="{MAP_RENDER_VERSION}">'
-        f'<rect width="{presentation.width}" height="{presentation.height}" fill="{_OCEAN_FILL}"/>'
+        f'data-render-version="{MAP_RENDER_VERSION}" '
+        'data-render-theme="aggregate-fallback">'
+        f'<rect width="{presentation.width}" height="{presentation.height}" '
+        f'fill="{_OCEAN_FILL}"/>'
         f"{''.join(layers)}"
         "</svg>"
     )
