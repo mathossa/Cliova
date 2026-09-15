@@ -52,7 +52,7 @@ export function toWorldSnapshot(bundle: CommandCenterBundle): WorldSnapshot {
       { label: "Food shortage", value: shortage, detail: "authoritative severity", tone: "neutral" },
       { label: "Regions", value: String(summary.region_count), detail: "known regions", tone: "neutral" },
       { label: "Societies", value: String(summary.societies.length), detail: "status summaries", tone: "neutral" },
-      { label: "Pressures", value: String(summary.pressures.length), detail: "active pressure states", tone: "neutral" },
+      { label: "Tensions", value: String(summary.pressures.length), detail: "active tension states", tone: "neutral" },
     ],
     pressures: summary.pressures.map((pressure) => ({
       id: pressure.id,
