@@ -34,6 +34,8 @@ from cliova.simulation.types import (
 pytestmark = pytest.mark.integration
 
 _PERSISTENCE_TABLES = (
+    "cliova_decision_opportunities",
+    "cliova_attention_items",
     "cliova_world_schedules",
     "cliova_tick_runs",
     "cliova_history_event_causes",
@@ -115,7 +117,11 @@ def test_migrations_initialize_empty_database() -> None:
             connection.execute(f"DROP TABLE IF EXISTS {table} CASCADE")
         connection.execute("DROP TABLE IF EXISTS cliova_schema_migrations")
 
-    assert apply_migrations(url) == ("0001_persistence.sql", "0002_tick_scheduling.sql")
+    assert apply_migrations(url) == (
+        "0001_persistence.sql",
+        "0002_tick_scheduling.sql",
+        "0003_attention_decisions.sql",
+    )
     assert apply_migrations(url) == ()
     with psycopg.connect(url) as connection:
         for table in _PERSISTENCE_TABLES:
