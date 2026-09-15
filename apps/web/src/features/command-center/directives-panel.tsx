@@ -1,10 +1,23 @@
 "use client";
 
 import { FormEvent, useMemo, useState } from "react";
-import { describeApiError, type DirectivePriority, type DirectiveSubmissionRequest } from "../../lib/api";
+import {
+  describeApiError,
+  type DirectiveIntent,
+  type DirectivePriority,
+  type DirectiveSubmissionRequest,
+} from "../../lib/api";
 import type { WorldSnapshot } from "./command-center.types";
 
+const DEVELOPMENT_AUTHOR = "development-operator";
 const priorities: DirectivePriority[] = ["low", "normal", "high"];
+const directiveActions: Array<{ intent: DirectiveIntent; label: string; description: string }> = [
+  {
+    intent: "strengthen_food_reserves",
+    label: "Strengthen food reserves",
+    description: "Prioritize improving and maintaining food reserves. The simulation determines what can actually be achieved.",
+  },
+];
 
 export function DirectivesPanel({
   world,
@@ -17,14 +30,15 @@ export function DirectivesPanel({
     () => world.societies.filter((society) => society.kind === "society" || society.kind === "polity"),
     [world.societies],
   );
-  const [author, setAuthor] = useState("command-center");
   const [targetId, setTargetId] = useState("");
+  const [intent, setIntent] = useState<DirectiveIntent>(directiveActions[0]!.intent);
   const [priority, setPriority] = useState<DirectivePriority>("normal");
   const [submitting, setSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const selectedTarget = validTargets.find((society) => society.id === targetId) ?? validTargets[0] ?? null;
+  const selectedAction = directiveActions.find((action) => action.intent === intent) ?? directiveActions[0]!;
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -38,9 +52,9 @@ export function DirectivesPanel({
     setError(null);
     try {
       await onSubmit({
-        author: author.trim(),
+        author: DEVELOPMENT_AUTHOR,
         target: { kind: selectedTarget.kind, id: selectedTarget.id },
-        intent: "strengthen_food_reserves",
+        intent,
         priority,
       });
       setFeedback("Directive queued. Its authoritative lifecycle will update after refresh or a later tick.");
@@ -56,18 +70,17 @@ export function DirectivesPanel({
       <section className="panel directive-submit-panel">
         <div className="panel-heading compact">
           <div>
-            <span className="eyebrow">Authoritative input</span>
-            <h2>Submit directive</h2>
+            <span className="eyebrow">Development operator · authoritative input</span>
+            <h2>Issue directive</h2>
           </div>
           <span className="live-badge">API v1</span>
         </div>
+        <div className="directive-context">
+          You are acting as the development operator with world-wide access. You are not currently assigned to a single society.
+        </div>
         <form className="directive-form" onSubmit={submit}>
           <label>
-            Author
-            <input required maxLength={100} value={author} onChange={(event) => setAuthor(event.target.value)} />
-          </label>
-          <label>
-            Target
+            Target society
             <select
               value={selectedTarget?.id ?? ""}
               onChange={(event) => setTargetId(event.target.value)}
@@ -78,19 +91,30 @@ export function DirectivesPanel({
                 <option key={society.id} value={society.id}>{society.label}</option>
               ))}
             </select>
+            {selectedTarget && <small>Home region: {selectedTarget.regionLabel} · ID {shortId(selectedTarget.id)}</small>}
           </label>
           <label>
-            Intent
-            <input value="Strengthen food reserves" readOnly aria-label="Directive intent" />
+            Action
+            <select value={intent} onChange={(event) => setIntent(event.target.value as DirectiveIntent)}>
+              {directiveActions.map((action) => (
+                <option key={action.intent} value={action.intent}>{action.label}</option>
+              ))}
+            </select>
+            <small>{selectedAction.description}</small>
           </label>
           <label>
             Priority
             <select value={priority} onChange={(event) => setPriority(event.target.value as DirectivePriority)}>
-              {priorities.map((item) => <option key={item} value={item}>{item}</option>)}
+              {priorities.map((item) => <option key={item} value={item}>{capitalize(item)}</option>)}
             </select>
+            <small>Priority is part of the directive request; it does not guarantee successful execution.</small>
           </label>
-          <button type="submit" disabled={submitting || validTargets.length === 0 || author.trim().length === 0}>
-            {submitting ? "Submitting…" : "Queue directive"}
+          <div className="directive-submit-summary">
+            <span className="eyebrow">Available actions</span>
+            <p>API v1 currently exposes one controlled directive action. Free text is not interpreted as simulation input.</p>
+          </div>
+          <button type="submit" disabled={submitting || validTargets.length === 0}>
+            {submitting ? "Submitting…" : "Issue directive"}
           </button>
         </form>
         {feedback && <p className="action-success" role="status">{feedback}</p>}
@@ -114,8 +138,8 @@ export function DirectivesPanel({
                 {world.pendingDirectives.map((directive) => (
                   <li key={directive.queueId}>
                     <strong>{directive.intent}</strong>
-                    <span>queued · {directive.priority} · tick {directive.submittedTick}</span>
-                    <small>{directive.author} → {shortId(directive.targetId)}</small>
+                    <span>Queued · {capitalize(directive.priority)} priority · tick {directive.submittedTick}</span>
+                    <small>{formatAuthor(directive.author)} → {directive.targetLabel}</small>
                   </li>
                 ))}
               </ul>
@@ -130,8 +154,8 @@ export function DirectivesPanel({
                 {world.directives.map((directive) => (
                   <li key={directive.id} data-directive-id={directive.id}>
                     <strong>{directive.intent}</strong>
-                    <span>{directive.status} · progress {directive.progress} · {directive.priority}</span>
-                    <small>{directive.author} → {shortId(directive.targetId)} · submitted tick {directive.submittedTick}</small>
+                    <span>{capitalize(directive.status)} · progress {directive.progress} · {capitalize(directive.priority)} priority</span>
+                    <small>{formatAuthor(directive.author)} → {directive.targetLabel} · submitted tick {directive.submittedTick}</small>
                   </li>
                 ))}
               </ul>
@@ -141,6 +165,15 @@ export function DirectivesPanel({
       </section>
     </div>
   );
+}
+
+function formatAuthor(author: string): string {
+  if (author === DEVELOPMENT_AUTHOR || author === "command-center") return "Development operator";
+  return author;
+}
+
+function capitalize(value: string): string {
+  return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
 function shortId(value: string): string {
