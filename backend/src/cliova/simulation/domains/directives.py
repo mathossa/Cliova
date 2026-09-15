@@ -295,10 +295,7 @@ def _advance_directive(
             f"Directive completed: execution strength {strength:.3f} and economic feasibility "
             f"{feasibility:.3f} advanced implementation to 1.000."
         )
-    elif (
-        strength >= ACCEPTED_EXECUTION_STRENGTH
-        and feasibility >= ACCEPTED_ECONOMIC_FEASIBILITY
-    ):
+    elif strength >= ACCEPTED_EXECUTION_STRENGTH and feasibility >= ACCEPTED_ECONOMIC_FEASIBILITY:
         status = "accepted"
         event_kind = "directive-accepted"
         reason = (
@@ -344,8 +341,12 @@ def _relevant_causes(
     for event in context.prior_events:
         if event.source not in {"economy", "governance"}:
             continue
-        if directive.target_subject in event.subjects or region_id in event.subjects or any(
-            change.target in {directive.target_subject, region_id} for change in event.changes
+        if (
+            directive.target_subject in event.subjects
+            or region_id in event.subjects
+            or any(
+                change.target in {directive.target_subject, region_id} for change in event.changes
+            )
         ):
             cause_ids.append(event.id)
     return tuple(dict.fromkeys(cause_ids))
