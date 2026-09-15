@@ -1,6 +1,8 @@
 import type {
   ApiErrorResponse,
+  AttentionItemsResponse,
   CreateDevelopmentWorldRequest,
+  DecisionOpportunityListResponse,
   DirectiveListResponse,
   DirectiveSubmissionRequest,
   HistoryResponse,
@@ -16,8 +18,14 @@ import type {
 
 export type {
   ApiErrorResponse,
+  AttentionItem,
+  AttentionItemsResponse,
+  AttentionPriority,
   AuthoritativeDirective,
   CreateDevelopmentWorldRequest,
+  DecisionOpportunity,
+  DecisionOpportunityListResponse,
+  DecisionOpportunityStatus,
   DirectiveIntent,
   DirectiveListResponse,
   DirectivePriority,
@@ -63,6 +71,8 @@ export interface CliovaApi {
   getSettlementMap(worldId: string, settlementId: string): Promise<LocalMapRequest>;
   getHistory(worldId: string, query?: HistoryQuery): Promise<HistoryResponse>;
   getDirectives(worldId: string): Promise<DirectiveListResponse>;
+  getAttentionItems(worldId: string): Promise<AttentionItemsResponse>;
+  getDecisionOpportunities(worldId: string): Promise<DecisionOpportunityListResponse>;
   submitDirective(worldId: string, request: DirectiveSubmissionRequest): Promise<QueuedDirective>;
   advanceDevelopmentTick(worldId: string, expectedTick: number): Promise<ManualTickResponse>;
 }
@@ -142,6 +152,14 @@ export class HttpCliovaApiClient implements CliovaApi {
 
   getDirectives(worldId: string): Promise<DirectiveListResponse> {
     return this.request(`/api/v1/worlds/${encodeURIComponent(worldId)}/directives`);
+  }
+
+  getAttentionItems(worldId: string): Promise<AttentionItemsResponse> {
+    return this.request(`/api/v1/worlds/${encodeURIComponent(worldId)}/attention-items`);
+  }
+
+  getDecisionOpportunities(worldId: string): Promise<DecisionOpportunityListResponse> {
+    return this.request(`/api/v1/worlds/${encodeURIComponent(worldId)}/decision-opportunities?status=open`);
   }
 
   submitDirective(worldId: string, request: DirectiveSubmissionRequest): Promise<QueuedDirective> {
