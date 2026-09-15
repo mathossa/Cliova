@@ -186,7 +186,9 @@ def get_decision_opportunities(
     opportunities = repository.list_decision_opportunities(world_id)
     if status_filter is not None:
         opportunities = tuple(
-            opportunity for opportunity in opportunities if opportunity.status.value == status_filter
+            opportunity
+            for opportunity in opportunities
+            if opportunity.status.value == status_filter
         )
     return DecisionOpportunityListResponse(
         world_id=world_id,
