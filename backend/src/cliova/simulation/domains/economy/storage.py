@@ -131,7 +131,7 @@ def adjust_aggregate_food_reserves(
     if new_stockpile < 0.0:
         raise ValueError("food stockpile cannot become negative")
     perishable, durable = reserve_pools(current)
-    delta = _quantity(new_stockpile - current.stockpile)
+    delta = round(new_stockpile - current.stockpile, 6)
     if delta >= 0.0:
         perishable = _quantity(perishable + delta)
     else:
