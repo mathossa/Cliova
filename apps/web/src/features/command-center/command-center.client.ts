@@ -17,8 +17,14 @@ export type CommandCenterLoadResult =
 export interface CommandCenterClient {
   load(preferredWorldId?: string): Promise<CommandCenterLoadResult>;
   createWorld(request: CreateDevelopmentWorldRequest): Promise<CommandCenterLoadResult>;
-  submitDirective(worldId: string, request: DirectiveSubmissionRequest): Promise<CommandCenterLoadResult>;
-  advanceDevelopmentTick(worldId: string, expectedTick: number): Promise<CommandCenterLoadResult>;
+  submitDirective(
+    worldId: string,
+    request: DirectiveSubmissionRequest,
+  ): Promise<CommandCenterLoadResult>;
+  advanceDevelopmentTick(
+    worldId: string,
+    expectedTick: number,
+  ): Promise<CommandCenterLoadResult>;
 }
 
 export class LiveCommandCenterClient implements CommandCenterClient {
@@ -34,19 +40,21 @@ export class LiveCommandCenterClient implements CommandCenterClient {
     if (!selected) return { kind: "missing", worlds, worldId: preferredWorldId ?? "" };
 
     const startTick = Math.max(0, selected.tick - RECENT_HISTORY_TICKS);
-    const [summary, regions, map, history, directives] = await Promise.all([
+    const [summary, regions, map, history, directives, attention, decisions] = await Promise.all([
       this.api.getWorld(selected.id),
       this.api.getRegions(selected.id),
       this.api.getWorldMap(selected.id),
       this.api.getHistory(selected.id, { startTick }),
       this.api.getDirectives(selected.id),
+      this.api.getAttentionItems(selected.id),
+      this.api.getDecisionOpportunities(selected.id),
     ]);
 
     return {
       kind: "ready",
       worlds,
       worldId: selected.id,
-      data: { summary, regions, map, history, directives },
+      data: { summary, regions, map, history, directives, attention, decisions },
     };
   }
 
@@ -63,7 +71,10 @@ export class LiveCommandCenterClient implements CommandCenterClient {
     return this.load(worldId);
   }
 
-  async advanceDevelopmentTick(worldId: string, expectedTick: number): Promise<CommandCenterLoadResult> {
+  async advanceDevelopmentTick(
+    worldId: string,
+    expectedTick: number,
+  ): Promise<CommandCenterLoadResult> {
     await this.api.advanceDevelopmentTick(worldId, expectedTick);
     return this.load(worldId);
   }
