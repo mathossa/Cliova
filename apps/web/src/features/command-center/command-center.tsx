@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useState } from "react";
 import { describeApiError } from "../../lib/api";
 import { DirectivesPanel } from "./directives-panel";
 import { HistoryFeed } from "./history-feed";
@@ -30,14 +30,9 @@ export function CommandCenter({ world, worlds, actions }: CommandCenterProps) {
   const [refreshing, setRefreshing] = useState(false);
   const [ticking, setTicking] = useState(false);
 
-  useEffect(() => {
-    if (!world.regions.some((region) => region.id === selectedRegion)) {
-      setSelectedRegion(world.regions[0]?.id ?? "");
-    }
-  }, [selectedRegion, world.id, world.regions]);
-
-  const activeDefinition = modules.find((module) => module.id === activeModule) ?? modules[0];
+  const activeDefinition = modules.find((module) => module.id === activeModule) ?? modules[0]!;
   const selectedRegionView = world.regions.find((region) => region.id === selectedRegion) ?? world.regions[0] ?? null;
+  const selectedRegionId = selectedRegionView?.id ?? "";
 
   function submitCommand(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -152,7 +147,7 @@ export function CommandCenter({ world, worlds, actions }: CommandCenterProps) {
           {activeModule === "terminal" && (
             <TerminalWorkspace
               world={world}
-              selectedRegion={selectedRegion}
+              selectedRegion={selectedRegionId}
               setSelectedRegion={setSelectedRegion}
               command={command}
               setCommand={setCommand}
