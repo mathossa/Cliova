@@ -99,9 +99,9 @@ export const modules: CommandCenterModule[] = [
   {
     id: "scenarios",
     label: "Issues",
-    description: "Persistent pressure state exposed by API v1, including milestone, intensity and causal event references.",
-    plannedViews: ["Active pressures", "Milestones", "Causal references"],
-    plannedActions: ["Inspect pressure"],
+    description: "Persistent tensions exposed by API v1, including milestone, intensity and causal event references. The underlying v1 contract still uses the technical pressure terminology.",
+    plannedViews: ["Active tensions", "Milestones", "Causal references"],
+    plannedActions: ["Inspect tension"],
   },
   {
     id: "history",
