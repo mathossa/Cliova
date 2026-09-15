@@ -22,6 +22,7 @@
     "check": "npm run check:web && npm run check:backend",
     "db:up": "docker compose -f infra/compose.yaml up -d --wait",
     "db:down": "docker compose -f infra/compose.yaml down",
+    "db:migrate": "python -m cliova.infrastructure.persistence.migrations",
     "health:api": "python scripts/check-health.py"
   },
   "engines": {
