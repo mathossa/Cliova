@@ -3,6 +3,7 @@ import type {
   HistoryResponse,
   RegionStatusResponse,
   SocietySummary,
+  WorldMapResponse,
   WorldSummary,
 } from "../../lib/api";
 import type {
@@ -18,6 +19,7 @@ import type {
 export type CommandCenterBundle = {
   summary: WorldSummary;
   regions: RegionStatusResponse;
+  map: WorldMapResponse;
   history: HistoryResponse;
   directives: DirectiveListResponse;
 };
@@ -26,7 +28,7 @@ const integerFormatter = new Intl.NumberFormat("en-US", { maximumFractionDigits:
 const decimalFormatter = new Intl.NumberFormat("en-US", { maximumFractionDigits: 3 });
 
 export function toWorldSnapshot(bundle: CommandCenterBundle): WorldSnapshot {
-  const { summary, regions, history, directives } = bundle;
+  const { summary, regions, map, history, directives } = bundle;
   const population = formatInteger(summary.population_total);
   const shortage = formatNumber(summary.food_shortage_severity);
   const regionViews = regions.regions.map(toRegionView);
@@ -84,6 +86,7 @@ export function toWorldSnapshot(bundle: CommandCenterBundle): WorldSnapshot {
       status: directive.status,
       progress: formatNumber(directive.progress),
     })),
+    map,
   };
 }
 
@@ -137,7 +140,23 @@ function toHistoryFeedItem(
     source: event.source,
     technicalDetail: event.reason,
     causeCount: event.cause_event_ids.length,
+    regionIds: historyRegionIds(event, societies),
   };
+}
+
+function historyRegionIds(
+  event: HistoryResponse["events"][number],
+  societies: SocietyView[],
+): string[] {
+  const regionIds = new Set<string>();
+  for (const subject of event.subjects) {
+    if (subject.kind === "region") regionIds.add(subject.id);
+    if (subject.kind === "society" || subject.kind === "polity") {
+      const society = societies.find((item) => item.id === subject.id);
+      if (society) regionIds.add(society.regionId);
+    }
+  }
+  return [...regionIds];
 }
 
 function humanHistoryText(kind: string, subject?: string): string {
