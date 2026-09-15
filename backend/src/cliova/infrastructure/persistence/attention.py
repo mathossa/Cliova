@@ -18,11 +18,10 @@ from cliova.application.attention import (
 )
 from cliova.application.persistence import QueuedSimulationInput
 from cliova.infrastructure.persistence.postgres import (
+    _INPUT_PAYLOAD_VERSION,
     DbConnection,
     PersistenceError,
-    WorldNotFoundError,
     _encode_input,
-    _INPUT_PAYLOAD_VERSION,
 )
 from cliova.infrastructure.persistence.scheduling import PostgresScheduledWorldRepository
 from cliova.simulation.types import EntityId, SimulationInput, TickResult, WorldState
@@ -83,26 +82,28 @@ class PostgresAttentionWorldRepository(PostgresScheduledWorldRepository):
         opportunity_id: UUID,
         value: SimulationInput,
     ) -> QueuedSimulationInput:
-        """Atomically validate the opportunity and assign its directive to a future input window."""
+        """Validate an opportunity and queue its directive at a future input boundary."""
 
         if value.directive is None or len(value.subjects) != 1:
             raise DecisionResponseError(
-                "invalid_decision_response", "Decision responses must contain one directive target."
+                "invalid_decision_response",
+                "Decision responses must contain one directive target.",
             )
         target = value.subjects[0]
         if target.kind not in {"society", "polity"}:
             raise DecisionResponseError(
-                "invalid_decision_response", "Decision responses must target a society or polity."
+                "invalid_decision_response",
+                "Decision responses must target a society or polity.",
             )
 
         payload = _encode_input(value)
         with self._connect() as connection:
-            world_row = connection.execute(
-                "SELECT current_tick FROM cliova_worlds WHERE world_id = %s FOR UPDATE",
-                (world_id,),
-            ).fetchone()
-            if world_row is None:
-                raise WorldNotFoundError(f"world {world_id} does not exist")
+            current_world = self._load_world(connection, world_id, for_update=True)
+            if not any(state.subject_id == target for state in current_world.governance):
+                raise DecisionResponseError(
+                    "decision_response_target_inactive",
+                    "Decision response target is no longer active in the current world.",
+                )
 
             row = connection.execute(
                 """
@@ -116,7 +117,8 @@ class PostgresAttentionWorldRepository(PostgresScheduledWorldRepository):
             ).fetchone()
             if row is None:
                 raise DecisionResponseError(
-                    "decision_opportunity_not_found", "Decision opportunity does not exist."
+                    "decision_opportunity_not_found",
+                    "Decision opportunity does not exist.",
                 )
             if row["status"] != DecisionOpportunityStatus.OPEN.value:
                 code = (
@@ -124,23 +126,29 @@ class PostgresAttentionWorldRepository(PostgresScheduledWorldRepository):
                     if row["status"] == DecisionOpportunityStatus.EXPIRED.value
                     else "decision_opportunity_already_responded"
                 )
-                raise DecisionResponseError(code, f"Decision opportunity is {row['status']}.")
+                raise DecisionResponseError(
+                    code,
+                    f"Decision opportunity is {row['status']}.",
+                )
 
             expected_target = EntityId.model_validate(
-                {"kind": str(row["target_kind"]), "value": cast(UUID, row["target_id"])}
+                {
+                    "kind": str(row["target_kind"]),
+                    "value": cast(UUID, row["target_id"]),
+                }
             )
             if target != expected_target:
                 raise DecisionResponseError(
                     "decision_response_target_mismatch",
-                    "Directive target does not match the decision opportunity target.",
+                    "Directive target does not match the opportunity target.",
                 )
             if value.directive.intent != str(row["response_intent"]):
                 raise DecisionResponseError(
                     "decision_response_action_mismatch",
-                    "Directive action is not valid for this decision opportunity.",
+                    "Directive action is not valid for this opportunity.",
                 )
 
-            submitted_tick = int(world_row["current_tick"]) + 1
+            submitted_tick = current_world.time.tick + 1
             earliest = int(row["earliest_effect_tick"])
             expires_at = cast(int | None, row["expires_at_tick"])
             if submitted_tick < earliest:
@@ -149,14 +157,6 @@ class PostgresAttentionWorldRepository(PostgresScheduledWorldRepository):
                     f"Decision response cannot take effect before tick {earliest}.",
                 )
             if expires_at is not None and submitted_tick > expires_at:
-                connection.execute(
-                    """
-                    UPDATE cliova_decision_opportunities
-                       SET status = 'expired'
-                     WHERE opportunity_id = %s AND status = 'open'
-                    """,
-                    (opportunity_id,),
-                )
                 raise DecisionResponseError(
                     "decision_opportunity_expired",
                     f"Decision opportunity expired after tick {expires_at}.",
@@ -250,7 +250,8 @@ class PostgresAttentionWorldRepository(PostgresScheduledWorldRepository):
                 directive.id == ingest_event.id for directive in result.world.directives
             ):
                 raise PersistenceError(
-                    "decision response did not materialize through the authoritative directive boundary"
+                    "decision response did not materialize through the authoritative "
+                    "directive boundary"
                 )
             connection.execute(
                 """
@@ -282,7 +283,9 @@ class PostgresAttentionWorldRepository(PostgresScheduledWorldRepository):
                 item.priority.value,
                 item.context,
                 list(item.related_event_ids),
-                Jsonb([subject.model_dump(mode="json") for subject in item.related_subjects]),
+                Jsonb(
+                    [subject.model_dump(mode="json") for subject in item.related_subjects]
+                ),
             ),
         )
 
@@ -309,7 +312,12 @@ class PostgresAttentionWorldRepository(PostgresScheduledWorldRepository):
                 opportunity.category,
                 opportunity.context,
                 list(opportunity.related_event_ids),
-                Jsonb([subject.model_dump(mode="json") for subject in opportunity.related_subjects]),
+                Jsonb(
+                    [
+                        subject.model_dump(mode="json")
+                        for subject in opportunity.related_subjects
+                    ]
+                ),
                 opportunity.earliest_effect_tick,
                 opportunity.expires_at_tick,
                 opportunity.default_behavior,
@@ -364,7 +372,10 @@ def _optional_target(row: dict[str, Any]) -> EntityId | None:
     if row["target_kind"] is None or row["target_id"] is None:
         return None
     return EntityId.model_validate(
-        {"kind": str(row["target_kind"]), "value": cast(UUID, row["target_id"])}
+        {
+            "kind": str(row["target_kind"]),
+            "value": cast(UUID, row["target_id"]),
+        }
     )
 
 
