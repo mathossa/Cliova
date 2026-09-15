@@ -15,6 +15,18 @@ EntityKind = Literal["world", "region", "society", "polity", "individual"]
 TerrainKind = Literal["plain", "plateau", "basin", "highland", "forest", "wetland", "coast"]
 BiomeKind = Literal["temperate", "semi_arid", "arid", "boreal", "tropical", "alpine"]
 ResourceKind = Literal["food", "timber", "stone", "metal_ore"]
+DirectiveIntent = Literal["strengthen_food_reserves"]
+DirectivePriority = Literal["low", "normal", "high"]
+DirectiveStatus = Literal[
+    "queued",
+    "accepted",
+    "partial",
+    "delayed",
+    "resisted",
+    "failed",
+    "completed",
+]
+ChangeAttributeValue = str | int | float | bool
 RNG_ALGORITHM: Final = "pcg64-sha256-v1"
 
 
@@ -288,6 +300,33 @@ class GovernanceState(SimulationModel):
         return self
 
 
+class DirectiveSubmission(SimulationModel):
+    """Player intent carried by a queued input; it does not directly replace domain state."""
+
+    intent: DirectiveIntent
+    priority: DirectivePriority = "normal"
+
+
+class DirectiveState(SimulationModel):
+    """Persistent lifecycle state for one indirect player directive."""
+
+    id: UUID
+    author: NonEmptyString
+    target_subject: EntityId
+    intent: DirectiveIntent
+    priority: DirectivePriority
+    submitted_tick: NonNegativeInt
+    submission_event_id: UUID
+    status: DirectiveStatus = "queued"
+    progress: UnitInterval = 0.0
+
+    @model_validator(mode="after")
+    def validate_target(self) -> "DirectiveState":
+        if self.target_subject.kind not in {"society", "polity"}:
+            raise ValueError("directive target must identify a society or polity")
+        return self
+
+
 class CapabilityProgress(SimulationModel):
     capability_key: NonEmptyString
     proficiency: UnitInterval = 0.0
@@ -356,6 +395,7 @@ class WorldState(SimulationModel):
     economy: EconomyDomainState | None = None
     knowledge: KnowledgeDomainState | None = None
     governance: tuple[GovernanceState, ...] = ()
+    directives: tuple[DirectiveState, ...] = ()
 
     @model_validator(mode="after")
     def check_world_id(self) -> "WorldState":
@@ -405,6 +445,13 @@ class WorldState(SimulationModel):
                 raise ValueError("governance region requires population and food economy") from exc
         return self
 
+    @model_validator(mode="after")
+    def validate_directives(self) -> "WorldState":
+        ids = [state.id for state in self.directives]
+        if len(ids) != len(set(ids)):
+            raise ValueError("directive IDs must be unique")
+        return self
+
     @property
     def year(self) -> int:
         """Read-only convenience for the existing headless CLI."""
@@ -436,8 +483,15 @@ class WorldState(SimulationModel):
         )
 
 
+class ChangeAttribute(SimulationModel):
+    """Small immutable typed metadata item for domain-owned non-numeric change context."""
+
+    key: NonEmptyString
+    value: ChangeAttributeValue
+
+
 class SimulationChange(SimulationModel):
-    """A proposed numeric change applied centrally by its owning simulation domain."""
+    """A proposed change applied centrally by its owning simulation domain."""
 
     source: NonEmptyString
     key: NonEmptyString
@@ -445,6 +499,14 @@ class SimulationChange(SimulationModel):
     reason: NonEmptyString
     target: EntityId | None = None
     cause_event_ids: tuple[UUID, ...] = ()
+    attributes: tuple[ChangeAttribute, ...] = ()
+
+    @model_validator(mode="after")
+    def validate_attributes(self) -> "SimulationChange":
+        keys = [attribute.key for attribute in self.attributes]
+        if len(keys) != len(set(keys)):
+            raise ValueError("simulation change attribute keys must be unique")
+        return self
 
 
 class SimulationEvent(SimulationModel):
@@ -478,6 +540,7 @@ class SimulationInput(SimulationModel):
     reason: NonEmptyString
     subjects: tuple[EntityId, ...] = ()
     changes: tuple[SimulationChange, ...] = ()
+    directive: DirectiveSubmission | None = None
 
 
 class SimulationExplanation(SimulationModel):
