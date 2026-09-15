@@ -44,7 +44,9 @@ def _world_id(seed: int, key: str) -> EntityId:
 
 
 def _initialized_generated_world(seed: int = 42) -> WorldState:
-    return initialize_economy(initialize_population(WorldState.create(seed=seed), total_per_region=300))
+    return initialize_economy(
+        initialize_population(WorldState.create(seed=seed), total_per_region=300)
+    )
 
 
 def test_worldengine_generation_is_reproducible_connected_and_serializable() -> None:
@@ -142,7 +144,9 @@ def test_region_partition_is_configurable_deterministic_and_has_stable_ids() -> 
     assert first == second
     assert len(first.regions) == 10
     assert is_connected(first)
-    assert tuple(region.id for region in first.regions) == tuple(region.id for region in second.regions)
+    assert tuple(region.id for region in first.regions) == tuple(
+        region.id for region in second.regions
+    )
     assert [region.key for region in first.regions] == [f"worldengine-v1:{i}" for i in range(10)]
     assert all(connection.travel_cost > 0.0 for connection in first.connections)
 
