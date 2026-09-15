@@ -7,12 +7,14 @@ from uuid import NAMESPACE_URL, UUID, uuid5
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 NonNegativeInt = Annotated[int, Field(strict=True, ge=0)]
+NonNegativeFloat = Annotated[float, Field(ge=0.0)]
 NonEmptyString = Annotated[str, Field(strict=True, min_length=1)]
 UnitInterval = Annotated[float, Field(ge=0.0, le=1.0)]
 PositiveFloat = Annotated[float, Field(gt=0.0)]
 EntityKind = Literal["world", "region", "society", "polity", "individual"]
 TerrainKind = Literal["plain", "plateau", "basin", "highland", "forest", "wetland", "coast"]
 BiomeKind = Literal["temperate", "semi_arid", "arid", "boreal", "tropical", "alpine"]
+ResourceKind = Literal["food", "timber", "stone", "metal_ore"]
 RNG_ALGORITHM: Final = "pcg64-sha256-v1"
 
 
@@ -198,6 +200,63 @@ class PopulationDomainState(SimulationModel):
         raise KeyError(region_id)
 
 
+class ResourceEconomyState(SimulationModel):
+    """One regional resource flow plus the reserve carried into future ticks."""
+
+    resource: ResourceKind
+    production_capacity: NonNegativeFloat = 0.0
+    production: NonNegativeFloat = 0.0
+    demand: NonNegativeFloat = 0.0
+    consumed: NonNegativeFloat = 0.0
+    stockpile: NonNegativeFloat = 0.0
+    surplus: NonNegativeFloat = 0.0
+    deficit: NonNegativeFloat = 0.0
+    shortage_severity: UnitInterval = 0.0
+
+
+class RegionalEconomyState(SimulationModel):
+    """Deterministic aggregate economy for one inhabited region."""
+
+    region_id: EntityId
+    resources: tuple[ResourceEconomyState, ...]
+
+    @model_validator(mode="after")
+    def validate_region(self) -> "RegionalEconomyState":
+        if self.region_id.kind != "region":
+            raise ValueError("RegionalEconomyState.region_id must identify a region")
+        resource_names = [resource.resource for resource in self.resources]
+        if len(resource_names) != len(set(resource_names)):
+            raise ValueError("economy resource names must be unique per region")
+        return self
+
+    def resource(self, resource: ResourceKind) -> ResourceEconomyState:
+        """Resolve one resource balance without exposing storage order."""
+        for candidate in self.resources:
+            if candidate.resource == resource:
+                return candidate
+        raise KeyError(resource)
+
+
+class EconomyDomainState(SimulationModel):
+    """Region-keyed economy state for inhabited regions."""
+
+    regions: tuple[RegionalEconomyState, ...] = ()
+
+    @model_validator(mode="after")
+    def validate_economy(self) -> "EconomyDomainState":
+        region_ids = [economy.region_id for economy in self.regions]
+        if len(region_ids) != len(set(region_ids)):
+            raise ValueError("economy region IDs must be unique")
+        return self
+
+    def region(self, region_id: EntityId) -> RegionalEconomyState:
+        """Resolve one regional economy by authoritative region ID."""
+        for economy in self.regions:
+            if economy.region_id == region_id:
+                return economy
+        raise KeyError(region_id)
+
+
 class WorldState(SimulationModel):
     """Authoritative aggregate; optional domain state keeps legacy snapshots loadable."""
 
@@ -207,6 +266,7 @@ class WorldState(SimulationModel):
     time: SimulationTime
     geography: GeographyState | None = None
     population: PopulationDomainState | None = None
+    economy: EconomyDomainState | None = None
 
     @model_validator(mode="after")
     def check_world_id(self) -> "WorldState":
