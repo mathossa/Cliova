@@ -244,12 +244,12 @@ export function CommandCenter({ world, worlds, actions }: CommandCenterProps) {
               <div className="panel-heading compact">
                 <div>
                   <span className="eyebrow">Authoritative scenarios</span>
-                  <h2>Current pressures</h2>
+                  <h2>Active tensions</h2>
                 </div>
                 <span className="live-badge">live</span>
               </div>
               <div className="pressure-list">
-                {world.pressures.length === 0 && <p className="empty-copy">No active pressures.</p>}
+                {world.pressures.length === 0 && <p className="empty-copy">No active tensions.</p>}
                 {world.pressures.map((pressure) => (
                   <button type="button" key={pressure.id} onClick={() => setActiveModule("scenarios")}>
                     <span>{pressure.label}</span>
