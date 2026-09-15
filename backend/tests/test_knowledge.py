@@ -79,7 +79,7 @@ def run_learning(world, pressure=1.0, amount=0.0, years=1):
 
 
 def test_capability_catalog_is_acyclic():
-    assert len(validate_catalog(CAPABILITIES)) == 4
+    assert len(validate_catalog(CAPABILITIES)) == 5
     first = CAPABILITIES[0]
     bad = first.model_copy(
         update={
