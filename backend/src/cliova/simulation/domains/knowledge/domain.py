@@ -104,6 +104,17 @@ def economy_learning_inputs(
                                 cause_event_ids=causes,
                             )
                         )
+                    experience.append(
+                        ExperienceGain(
+                            track="food",
+                            amount=(
+                                round(outcome.production / denominator, 6)
+                                if denominator > 0
+                                else 0.0
+                            ),
+                            cause_event_ids=causes,
+                        )
+                    )
                 else:
                     experience.append(
                         ExperienceGain(
@@ -218,8 +229,6 @@ class KnowledgeDomain:
                     candidates.append((delta, item, signal))
                 if not candidates:
                     continue
-                # One improvement per society/capability/tick; use the strongest valid
-                # local opportunity, never combine separate regions' prerequisites.
                 delta, item, signal = max(candidates, key=lambda candidate: candidate[0])
                 before = society.proficiency(definition.key)
                 after = round(min(1.0, before + delta), 6)
