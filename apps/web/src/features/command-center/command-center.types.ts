@@ -13,6 +13,7 @@ export type HistoryFeedItem = {
   text: string;
   tone: DisplayTone;
   source: string;
+  technicalDetail: string;
   causeCount: number;
 };
 
@@ -36,6 +37,7 @@ export type SocietyView = {
   kind: "society" | "polity" | "unsupported";
   label: string;
   regionId: string;
+  regionLabel: string;
   population: string;
   food: FoodView;
   governance: GovernanceView;
@@ -57,6 +59,7 @@ export type PressureView = {
   id: string;
   label: string;
   regionId: string;
+  regionLabel: string;
   milestone: string;
   intensity: string;
   ageTicks: number;
@@ -68,6 +71,7 @@ export type DirectiveQueueView = {
   submittedTick: number;
   author: string;
   targetId: string;
+  targetLabel: string;
   intent: string;
   priority: DirectivePriority;
 };
@@ -77,6 +81,7 @@ export type DirectiveView = {
   submittedTick: number;
   author: string;
   targetId: string;
+  targetLabel: string;
   intent: string;
   priority: DirectivePriority;
   status: DirectiveStatus;
@@ -113,6 +118,7 @@ export type WorldSnapshot = {
 
 export type CommandCenterActions = {
   selectWorld: (worldId: string) => Promise<void>;
+  createWorld: (seed: number) => Promise<void>;
   refresh: () => Promise<void>;
   submitDirective: (request: DirectiveSubmissionRequest) => Promise<void>;
   advanceDevelopmentTick: () => Promise<void>;
