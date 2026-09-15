@@ -251,7 +251,9 @@ class GeographyState(SimulationModel):
         if self.presentation is not None:
             presentation_ids = {region.region_id for region in self.presentation.regions}
             if presentation_ids != known_ids:
-                raise ValueError("presentation geometry must contain every geography region exactly once")
+                raise ValueError(
+                    "presentation geometry must contain every geography region exactly once"
+                )
         return self
 
     def region(self, key: str) -> RegionState:
