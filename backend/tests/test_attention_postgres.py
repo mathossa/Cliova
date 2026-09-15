@@ -197,9 +197,7 @@ def test_unanswered_opportunity_never_blocks_tick_and_expires_deterministically(
 
 
 def test_response_reuses_future_directive_input_and_survives_restart() -> None:
-    database_url, repository, world_id = _fresh_repository(
-        producer=FixtureAttentionProducer()
-    )
+    database_url, repository, world_id = _fresh_repository(producer=FixtureAttentionProducer())
     service = ScheduledTickService(create_simulation_engine(), repository)
     service.advance_manual(world_id, expected_tick=0)
     opportunity = repository.list_decision_opportunities(world_id)[0]
@@ -227,8 +225,7 @@ def test_response_reuses_future_directive_input_and_survives_restart() -> None:
     linked = repository.list_decision_opportunities(world_id)[0]
     assert linked.response_directive_id is not None
     assert any(
-        directive.id == linked.response_directive_id
-        for directive in result.world.directives
+        directive.id == linked.response_directive_id for directive in result.world.directives
     )
 
     restarted = PostgresAttentionWorldRepository(
