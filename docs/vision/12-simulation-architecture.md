@@ -46,6 +46,14 @@ Schaalbaarheid komt vooral uit aggregatie: niet iedere inwoner, akker of kaartce
 
 De browser wordt een webapp, waarschijnlijk met **React/Next.js + TypeScript**. **MapLibre GL JS** kan later de interactieve wereldkaart renderen. De eerste UX mag bewust veel eenvoudiger zijn: een web-based terminal/simulation lab waarin developers werelden kunnen maken, jaren vooruitspoelen, waarden inspecteren en oorzaken opvragen.
 
+## Simulation tuning
+
+Domeinen mogen bewuste balansparameters aanbieden, zoals rates, sensitivities, thresholds en multipliers. Deze parameters hebben authoritative defaults, zijn centraal en testbaar gedefinieerd en kunnen per simulatie door een versioned tuning profile worden overschreven. Alleen parameters die bewust bedoeld zijn voor balans horen in dit contract; interne implementatieconstanten worden niet automatisch configureerbaar.
+
+Admin- en development tooling mag deze waarden via sliders of andere passende controls aanpassen, maar de browser bevat geen authoritative formules. Tuning verandert de regels waarmee toekomstige ticks worden berekend en wijzigt niet rechtstreeks de huidige wereldstatus. Directe state overrides horen bij aparte debug/world-editor tooling.
+
+Een tuning profile is replay-relevante configuratie. Dezelfde initial state, seed, simulation version, tuning profile en geordende inputs moeten hetzelfde authoritative resultaat geven. Opgeslagen werelden moeten daarom voldoende tuning/version metadata behouden voor reproductie en diagnose.
+
 ## Event-gedreven koppeling
 
 Modules moeten niet ongecontroleerd elkaars interne staat aanpassen. Waar mogelijk publiceren zij gebeurtenissen of changesets zoals `FoodShortage`, `MigrationPressure` of `KnowledgeSpread`. Andere modules reageren daarop via duidelijke contracten. Dit maakt uitbreiden en testen veel eenvoudiger.
