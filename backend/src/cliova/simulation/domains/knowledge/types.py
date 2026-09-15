@@ -30,6 +30,7 @@ class ExperienceRequirement(SimulationModel):
 
 class CapabilityEffect(SimulationModel):
     resource: ResourceKind
+    production_method: NonEmptyString | None = None
     max_bonus: NonNegativeFloat
 
 

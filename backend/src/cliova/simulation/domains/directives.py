@@ -33,7 +33,7 @@ _PRIORITY_ORDER: dict[DirectivePriority, int] = {"low": 0, "normal": 1, "high": 
 _TERMINAL_STATUSES = {"failed", "completed"}
 _DIRECTIVE_CHANGE_KEY = "directives.state"
 
-CapabilityModifier = Callable[[WorldState, EntityId, ResourceKind], float]
+CapabilityModifier = Callable[[WorldState, EntityId, ResourceKind, str | None], float]
 
 
 def directive_input(
@@ -56,9 +56,13 @@ def directive_input(
 
 
 def directive_economy_modifier(
-    world: WorldState, region_id: EntityId, resource: ResourceKind
+    world: WorldState,
+    region_id: EntityId,
+    resource: ResourceKind,
+    production_method: str | None = None,
 ) -> float:
     """Return the implemented food-priority effect; economy still owns all food changes."""
+    del production_method  # This directive intentionally applies across food-production methods.
     if resource != "food":
         return 1.0
 
@@ -78,13 +82,20 @@ class DirectiveAwareEconomyDomain(EconomyDomain):
     """Thin adapter composing #9 circumstance effects with #7/#11 production modifiers."""
 
     def __init__(self, capability_modifier: CapabilityModifier | None = None) -> None:
-        def combined(world: WorldState, region_id: EntityId, resource: ResourceKind) -> float:
+        def combined(
+            world: WorldState,
+            region_id: EntityId,
+            resource: ResourceKind,
+            production_method: str | None,
+        ) -> float:
             capability = (
-                capability_modifier(world, region_id, resource)
+                capability_modifier(world, region_id, resource, production_method)
                 if capability_modifier is not None
                 else 1.0
             )
-            return capability * directive_economy_modifier(world, region_id, resource)
+            return capability * directive_economy_modifier(
+                world, region_id, resource, production_method
+            )
 
         super().__init__(capability_modifier=combined)
 

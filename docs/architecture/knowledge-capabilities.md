@@ -20,15 +20,21 @@ The catalog and saved state are immutable Pydantic models, not graph objects. Th
 no eras, global research currency or compulsory progression between the two branches.
 
 Each capability has proficiency in [0, 1], an activation threshold, composable resource,
-experience and capability prerequisites, and an economic effect. All prerequisites must
-hold within one participating region. Experience and capability prerequisites use the
-pre-step society snapshot; this tick's new practice becomes available next tick. Dependent
-capabilities cannot unlock each other during the same evaluation.
+experience and capability prerequisites, and an economic effect. Effects may optionally
+name a production method within a resource. The current cultivation capabilities therefore
+target `food/cultivation`; they do not improve pastoralism, foraging or fishing merely
+because those methods all aggregate into `food`. Resource-wide effects remain supported by
+leaving the method unset. All prerequisites must hold within one participating region.
+Experience and capability prerequisites use the pre-step society snapshot; this tick's new
+practice becomes available next tick. Dependent capabilities cannot unlock each other during
+the same evaluation.
 
 The initial adapter reads #7 food and metal_ore outputs. Per region/track/tick:
 
-- Practice gain is `production / max(production, demand)`, or zero when both are zero.
-  It is at most one unit, avoiding an arbitrary advantage from resource quantity units.
+- Practice gain is `method production / max(resource production, demand)` for cultivation
+  when method diagnostics exist, and otherwise `production / max(production, demand)`.
+  Metal extraction keeps the resource-level calculation. Gains are zero when the denominator
+  is zero and stay at most one unit.
 - Pressure is `0.25 + 0.75 * shortage_severity` when demand is positive, otherwise zero.
   Ordinary demand motivates improvement; shortage strengthens it.
 - Proficiency gain is `0.1 * pressure * min(1, accumulated_track_experience / 5)`.
@@ -41,10 +47,11 @@ pool resource prerequisites. Existing practical experience can support innovatio
 new demand even when that tick has no production; resource requirements still apply.
 Constants and activation/experience thresholds are provisional tuning in `catalog.py`.
 
-Once activated, an effect contributes `max_bonus * proficiency` to the regional multiplier.
-Multiple relevant effects add to the neutral multiplier of one. Economy still owns every
-production, extraction, demand and reserve formula. Resource scarcity can make a retained
-capability unusable through the existing production formula without deleting knowledge.
+Once activated, an effect contributes `max_bonus * proficiency` to the matching regional
+resource/method multiplier. Multiple relevant effects add to the neutral multiplier of one.
+Economy still owns every production, extraction, demand and reserve formula. Resource scarcity
+or a sustainable-yield ceiling can make retained knowledge unable to increase actual output
+without deleting the capability.
 
 ## Headless integration
 
@@ -101,5 +108,6 @@ adapted, and no dependencies were added. Progression and adapters are small Clio
 rules; Mesa or an additional graph library would add unnecessary machinery.
 
 Focused tests cover prerequisites, contextual divergence, deterministic replay, serialization,
-actual economic effects, activation causality, practical learning over multiple ticks,
-local prerequisite checks, changing participation, invalid inputs and numeric bounds.
+method-scoped and resource-wide economic effects, activation causality, practical learning
+over multiple ticks, local prerequisite checks, changing participation, invalid inputs and
+numeric bounds.

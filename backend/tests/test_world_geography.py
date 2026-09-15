@@ -47,7 +47,48 @@ def test_regions_expose_environmental_and_resource_inputs() -> None:
         assert 0.0 <= region.climate_pressure <= 1.0
         assert region.resources
         assert 0.0 <= region.resource_potential("metal_ores") <= 1.0
+        assert 0.0 <= region.resource_potential("arable_land") <= 1.0
+        assert 0.0 <= region.resource_potential("grazing") <= 1.0
+        assert 0.0 <= region.resource_potential("wild_food") <= 1.0
+        assert 0.0 <= region.resource_potential("aquatic_food") <= 1.0
         assert region.resource_potential("not-present") == 0.0
+
+
+def test_added_food_opportunities_do_not_shift_legacy_geography_rng_sequence() -> None:
+    geography = WorldState.create(seed=42).geography
+    assert geography is not None
+    first = geography.regions[0]
+
+    assert (
+        first.biome,
+        first.terrain,
+        first.habitability,
+        first.water_access,
+        first.climate_pressure,
+        first.resource_potential("arable_land"),
+        first.resource_potential("metal_ores"),
+        first.resource_potential("stone"),
+        first.resource_potential("timber"),
+    ) == (
+        "arid",
+        "highland",
+        0.213181,
+        0.229214,
+        0.909336,
+        0.105061,
+        0.472546,
+        0.578483,
+        0.147552,
+    )
+    assert [connection.travel_cost for connection in geography.connections] == [
+        1.059715,
+        1.091246,
+        2.580179,
+        1.046689,
+        1.363482,
+        1.51855,
+        2.463048,
+    ]
 
 
 def test_seeded_geography_applies_physical_biases_without_fixed_templates() -> None:
@@ -112,6 +153,9 @@ def test_starter_fixture_has_meaningfully_different_connected_regions() -> None:
     assert dry.climate_pressure > fertile.climate_pressure
     assert highlands.resource_potential("metal_ores") > fertile.resource_potential("metal_ores")
     assert forest.resource_potential("timber") > dry.resource_potential("timber")
+    assert highlands.resource_potential("grazing") > dry.resource_potential("wild_food")
+    assert forest.resource_potential("wild_food") > dry.resource_potential("wild_food")
+    assert forest.resource_potential("aquatic_food") > dry.resource_potential("aquatic_food")
 
     route = shortest_path(geography, fertile.id, highlands.id)
     assert route == (fertile.id, forest.id, highlands.id)

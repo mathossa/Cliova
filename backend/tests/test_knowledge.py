@@ -141,21 +141,30 @@ def test_replay_serialization_and_stable_parallel_order():
     )
 
 
-def test_effect_is_pure_scales_and_improves_actual_economy():
+def test_effect_is_pure_scales_and_improves_only_cultivation():
     world = setup_world(proficiency=0.8)
     before = world.model_dump_json()
     knowledge = KnowledgeDomain()
     region = world.knowledge.societies[0].region_ids[0]
-    assert knowledge.capability_modifier(world, region, "food") == 1.2
+    assert knowledge.capability_modifier(world, region, "food") == 1.0
+    assert knowledge.capability_modifier(world, region, "food", "cultivation") == 1.2
+    assert knowledge.capability_modifier(world, region, "food", "fishing") == 1.0
     assert knowledge.capability_modifier(world, region, "stone") == 1
     assert world.model_dump_json() == before
     base = SimulationEngine((EconomyDomain(),)).step(world).world.economy.region(region)
     improved = SimulationEngine((EconomyDomain(knowledge.capability_modifier),)).step(world)
-    assert improved.world.economy.region(region).resource("food").production == pytest.approx(
-        base.resource("food").production * 1.2,
+    base_food = base.resource("food")
+    improved_food = improved.world.economy.region(region).resource("food")
+    base_methods = {method.method: method for method in base_food.food_production}
+    improved_methods = {method.method: method for method in improved_food.food_production}
+    assert improved_methods["cultivation"].output == pytest.approx(
+        base_methods["cultivation"].output * 1.2
     )
+    for method in ("pastoralism", "foraging", "fishing"):
+        assert improved_methods[method].output == base_methods[method].output
+    assert improved_food.production > base_food.production
     emerging = setup_world(proficiency=0.19)
-    assert knowledge.capability_modifier(emerging, region, "food") == 1
+    assert knowledge.capability_modifier(emerging, region, "food", "cultivation") == 1
 
 
 def test_discovery_occurs_once_and_preserves_causal_history():
@@ -227,8 +236,8 @@ def test_knowledge_survives_changed_participation_and_bonus_moves():
     )
     assert moved.society_id == society.society_id
     assert moved.capabilities == society.capabilities
-    assert KnowledgeDomain().capability_modifier(world, old_region, "food") == 1
-    assert KnowledgeDomain().capability_modifier(world, new_region, "food") == 1.2
+    assert KnowledgeDomain().capability_modifier(world, old_region, "food", "cultivation") == 1
+    assert KnowledgeDomain().capability_modifier(world, new_region, "food", "cultivation") == 1.2
 
 
 def test_prerequisites_must_coexist_in_one_region():

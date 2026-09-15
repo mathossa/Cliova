@@ -79,11 +79,22 @@ def economy_learning_inputs(
                         cause_event_ids=causes,
                     )
                 )
+                activity = outcome.production
+                if resource == "food" and outcome.food_production:
+                    cultivation = next(
+                        (
+                            method
+                            for method in outcome.food_production
+                            if method.method == "cultivation"
+                        ),
+                        None,
+                    )
+                    activity = cultivation.output if cultivation is not None else 0.0
                 denominator = max(outcome.production, outcome.demand)
                 experience.append(
                     ExperienceGain(
                         track=track,
-                        amount=round(outcome.production / denominator, 6) if denominator > 0 else 0,
+                        amount=round(activity / denominator, 6) if denominator > 0 else 0,
                         cause_event_ids=causes,
                     )
                 )
@@ -278,9 +289,13 @@ class KnowledgeDomain:
         )
 
     def capability_modifier(
-        self, world: WorldState, region_id: EntityId, resource: ResourceKind
+        self,
+        world: WorldState,
+        region_id: EntityId,
+        resource: ResourceKind,
+        production_method: str | None = None,
     ) -> float:
-        """Existing #7 Callable seam; retained knowledge applies only where participating."""
+        """Return a pure resource/method modifier for participating society knowledge."""
         if world.knowledge is None:
             return 1.0
         society = next((s for s in world.knowledge.societies if region_id in s.region_ids), None)
@@ -290,6 +305,10 @@ class KnowledgeDomain:
             definition.effect.max_bonus * society.proficiency(definition.key)
             for definition in self.catalog
             if definition.effect.resource == resource
+            and (
+                definition.effect.production_method is None
+                or definition.effect.production_method == production_method
+            )
             and society.proficiency(definition.key) >= definition.activation_threshold
         )
         return round(1.0 + bonus, 6)

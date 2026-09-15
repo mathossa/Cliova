@@ -22,7 +22,7 @@ CAPABILITIES = (
         activation_threshold=0.2,
         practice_track="cultivation",
         pressure_key="food",
-        effect=CapabilityEffect(resource="food", max_bonus=0.25),
+        effect=CapabilityEffect(resource="food", production_method="cultivation", max_bonus=0.25),
     ),
     CapabilityDefinition(
         key="soil_management",
@@ -34,7 +34,7 @@ CAPABILITIES = (
         activation_threshold=0.2,
         practice_track="cultivation",
         pressure_key="food",
-        effect=CapabilityEffect(resource="food", max_bonus=0.15),
+        effect=CapabilityEffect(resource="food", production_method="cultivation", max_bonus=0.15),
     ),
     CapabilityDefinition(
         key="ore_extraction",

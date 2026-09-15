@@ -17,7 +17,15 @@ from cliova.simulation.types import (
 )
 
 REGION_COUNT = 6
-RESOURCE_KINDS: tuple[str, ...] = ("arable_land", "metal_ores", "stone", "timber")
+RESOURCE_KINDS: tuple[str, ...] = (
+    "arable_land",
+    "grazing",
+    "wild_food",
+    "aquatic_food",
+    "metal_ores",
+    "stone",
+    "timber",
+)
 TERRAINS: tuple[TerrainKind, ...] = (
     "plain",
     "plateau",
@@ -142,6 +150,34 @@ TERRAIN_WEIGHTS: dict[BiomeKind, tuple[float, ...]] = {
     "alpine": (0.2, 1.0, 0.4, 1.8, 0.5, 0.2, 0.3),
 }
 
+_GRAZING_TERRAIN_BONUS: dict[TerrainKind, float] = {
+    "plain": 0.05,
+    "plateau": 0.08,
+    "basin": 0.10,
+    "highland": 0.12,
+    "forest": -0.08,
+    "wetland": -0.05,
+    "coast": 0.0,
+}
+_WILD_FOOD_TERRAIN_BONUS: dict[TerrainKind, float] = {
+    "plain": 0.0,
+    "plateau": 0.0,
+    "basin": 0.0,
+    "highland": 0.0,
+    "forest": 0.10,
+    "wetland": 0.08,
+    "coast": 0.0,
+}
+_AQUATIC_TERRAIN_FACTOR: dict[TerrainKind, float] = {
+    "plain": 0.35,
+    "plateau": 0.30,
+    "basin": 0.75,
+    "highland": 0.35,
+    "forest": 0.55,
+    "wetland": 0.90,
+    "coast": 1.00,
+}
+
 
 def _choice[T](rng: RandomSource, values: tuple[T, ...]) -> T:
     index = min(int(rng.random() * len(values)), len(values) - 1)
@@ -174,6 +210,40 @@ def _bounded_value(rng: RandomSource, center: float, *, spread: float) -> float:
     return round(min(1.0, max(0.0, varied)), 6)
 
 
+def _unit(value: float) -> float:
+    return round(min(1.0, max(0.0, value)), 6)
+
+
+def derive_food_opportunities(
+    *,
+    terrain: TerrainKind,
+    habitability: float,
+    water_access: float,
+    climate_pressure: float,
+    arable_land: float,
+    timber: float,
+) -> tuple[ResourcePotential, ...]:
+    """Derive non-cultivation opportunities without consuming the geography RNG stream."""
+    grazing = _unit(
+        0.40 * (1.0 - arable_land)
+        + 0.35 * habitability
+        + 0.25 * (1.0 - climate_pressure)
+        + _GRAZING_TERRAIN_BONUS[terrain]
+    )
+    wild_food = _unit(
+        0.50 * timber
+        + 0.25 * water_access
+        + 0.25 * habitability
+        + _WILD_FOOD_TERRAIN_BONUS[terrain]
+    )
+    aquatic_food = _unit(water_access * _AQUATIC_TERRAIN_FACTOR[terrain])
+    return (
+        ResourcePotential(resource="grazing", potential=grazing),
+        ResourcePotential(resource="wild_food", potential=wild_food),
+        ResourcePotential(resource="aquatic_food", potential=aquatic_food),
+    )
+
+
 def _generate_region(*, world_id: EntityId, index: int, rng: RandomSource) -> RegionState:
     biome = _choice(rng, BIOMES)
     terrain = _weighted_choice(rng, TERRAINS, TERRAIN_WEIGHTS[biome])
@@ -195,39 +265,39 @@ def _generate_region(*, world_id: EntityId, index: int, rng: RandomSource) -> Re
         biome_profile.climate_pressure + terrain_modifier.climate_pressure,
         spread=0.12,
     )
+    arable_land = _bounded_value(
+        rng,
+        biome_profile.arable_land + terrain_modifier.arable_land,
+        spread=0.15,
+    )
+    metal_ores = _bounded_value(
+        rng,
+        0.40 + terrain_modifier.metal_ores,
+        spread=0.18,
+    )
+    stone = _bounded_value(
+        rng,
+        0.40 + terrain_modifier.stone,
+        spread=0.18,
+    )
+    timber = _bounded_value(
+        rng,
+        biome_profile.timber + terrain_modifier.timber,
+        spread=0.15,
+    )
     resources = (
-        ResourcePotential(
-            resource="arable_land",
-            potential=_bounded_value(
-                rng,
-                biome_profile.arable_land + terrain_modifier.arable_land,
-                spread=0.15,
-            ),
+        ResourcePotential(resource="arable_land", potential=arable_land),
+        *derive_food_opportunities(
+            terrain=terrain,
+            habitability=habitability,
+            water_access=water_access,
+            climate_pressure=climate_pressure,
+            arable_land=arable_land,
+            timber=timber,
         ),
-        ResourcePotential(
-            resource="metal_ores",
-            potential=_bounded_value(
-                rng,
-                0.40 + terrain_modifier.metal_ores,
-                spread=0.18,
-            ),
-        ),
-        ResourcePotential(
-            resource="stone",
-            potential=_bounded_value(
-                rng,
-                0.40 + terrain_modifier.stone,
-                spread=0.18,
-            ),
-        ),
-        ResourcePotential(
-            resource="timber",
-            potential=_bounded_value(
-                rng,
-                biome_profile.timber + terrain_modifier.timber,
-                spread=0.15,
-            ),
-        ),
+        ResourcePotential(resource="metal_ores", potential=metal_ores),
+        ResourcePotential(resource="stone", potential=stone),
+        ResourcePotential(resource="timber", potential=timber),
     )
 
     return RegionState(
