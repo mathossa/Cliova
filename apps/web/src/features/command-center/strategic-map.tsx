@@ -72,7 +72,6 @@ export function StrategicMap({
   const [baseError, setBaseError] = useState(false);
   const [selectedSettlementId, setSelectedSettlementId] = useState<string | null>(null);
   const mapData = world.map;
-  selectedRegionRef.current = selectedRegionId;
 
   const selectedRegion = world.regions.find((region) => region.id === selectedRegionId)
     ?? world.regions[0]
@@ -91,6 +90,10 @@ export function StrategicMap({
     () => Math.max(1, ...mapData.regions.map((region) => region.population ?? 0)),
     [mapData.regions],
   );
+
+  useEffect(() => {
+    selectedRegionRef.current = selectedRegionId;
+  }, [selectedRegionId]);
 
   useEffect(() => {
     const baseMapUrl = mapData.base_map_url;
