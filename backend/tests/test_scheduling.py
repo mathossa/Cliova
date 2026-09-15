@@ -148,6 +148,7 @@ def test_concurrent_scheduled_attempts_cannot_both_commit(database_url: str) -> 
     assert first_repository.load_world(world.id.value).time.tick == 1
     assert _count(database_url, "cliova_completed_ticks") == 1
     assert _count(database_url, "cliova_tick_runs") == 1
+    assert first_repository.load_schedule_state(world.id.value).duplicate_attempt_count == 1
 
 
 def test_late_input_cannot_change_started_tick_and_remains_for_future_tick(
@@ -250,8 +251,8 @@ def test_scheduling_service_does_not_interpret_tick_as_in_world_year() -> None:
     now = datetime(2026, 9, 15, 20, 0, tzinfo=UTC)
     world = _world(key="time-independent")
     arbitrary_time_world = world.model_copy(update={"time": SimulationTime(tick=1, year=37)})
-    arbitrary_result = SimulationEngine().step(world).model_copy(
-        update={"world": arbitrary_time_world}
+    arbitrary_result = (
+        SimulationEngine().step(world).model_copy(update={"world": arbitrary_time_world})
     )
 
     class RecordingRepository:
