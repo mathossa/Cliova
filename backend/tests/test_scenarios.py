@@ -405,8 +405,8 @@ def test_food_insecurity_milestone_preserves_exact_scoped_causes() -> None:
     assert dry_subject not in event.subjects
 
 
-def test_strengthen_food_reserves_helps_recovery_only_through_normal_economy_path() -> None:
-    initial, region_id, subject = one_region_world(arable_land=0.65, world_key="directive-recovery")
+def test_food_reserve_directive_cannot_bypass_binding_sustainable_yield() -> None:
+    initial, region_id, subject = one_region_world(arable_land=0.65, world_key="directive-cap")
     crisis, pending, crisis_ticks = run_until_crisis(initial, region_id)
     baseline_intensity = pressure_for(crisis, region_id).intensity
 
@@ -425,10 +425,15 @@ def test_strengthen_food_reserves_helps_recovery_only_through_normal_economy_pat
 
     assert treatment.directives[0].status == "completed"
     assert treatment.economy is not None and control.economy is not None
-    assert treatment.economy.region(region_id).resource("food").shortage_severity == 0.0
-    assert control.economy.region(region_id).resource("food").shortage_severity > 0.0
-    assert pressure_for(treatment, region_id).milestone == "resolved"
+    treatment_food = treatment.economy.region(region_id).resource("food")
+    control_food = control.economy.region(region_id).resource("food")
+    assert treatment_food.production_capacity > control_food.production_capacity
+    assert treatment_food.production == control_food.production
+    assert treatment_food.shortage_severity == control_food.shortage_severity
+    assert treatment_food.shortage_severity > 0.0
+    assert pressure_for(treatment, region_id).milestone == "crisis"
     assert pressure_for(control, region_id).milestone == "crisis"
+    assert pressure_for(treatment, region_id).intensity >= baseline_intensity
     assert pressure_for(control, region_id).intensity >= baseline_intensity
     assert all(
         change.source == "scenarios" and change.key == "scenarios.pressure"
@@ -445,15 +450,10 @@ def test_strengthen_food_reserves_helps_recovery_only_through_normal_economy_pat
     )
 
     history = EventHistory.from_ticks((*crisis_ticks, *treatment_ticks))
-    resolved = next(
-        event
+    assert not any(
+        event.source == "scenarios" and event.kind == "food-insecurity-resolved"
         for event in history.events
-        if event.source == "scenarios" and event.kind == "food-insecurity-resolved"
     )
-    chain = history.causal_chain(resolved.id)
-    assert chain[-1] == resolved
-    assert any(event.kind == "resource-recovery" for event in chain)
-    assert any(event.source == "directives" for event in chain)
 
 
 def test_weak_governance_resists_directive_and_crisis_persists() -> None:
