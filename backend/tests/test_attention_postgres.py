@@ -21,7 +21,7 @@ from cliova.application.scheduling import ScheduledTickService
 from cliova.infrastructure.persistence.attention import PostgresAttentionWorldRepository
 from cliova.infrastructure.persistence.migrations import apply_migrations
 from cliova.simulation.domains.directives import directive_input
-from cliova.simulation.types import TickResult, WorldState
+from cliova.simulation.types import SimulationInput, TickResult, WorldState
 
 pytestmark = pytest.mark.integration
 
@@ -94,12 +94,17 @@ def _fresh_repository(
     with psycopg.connect(database_url) as connection:
         connection.execute("TRUNCATE TABLE cliova_worlds RESTART IDENTITY CASCADE")
     repository = PostgresAttentionWorldRepository(database_url, producer=producer)
-    world = create_development_world(seed=64, world_key=str(uuid5(NAMESPACE_URL, "attention-db")))
+    world = create_development_world(
+        seed=64,
+        world_key=str(uuid5(NAMESPACE_URL, "attention-db")),
+    )
     repository.create_world(world)
     return database_url, repository, world.id.value
 
 
-def _response_value(repository: PostgresAttentionWorldRepository, world_id: UUID):
+def _response_value(
+    repository: PostgresAttentionWorldRepository, world_id: UUID
+) -> SimulationInput:
     world = repository.load_world(world_id)
     return directive_input(
         author="player:test",
@@ -166,9 +171,15 @@ def test_response_reuses_future_directive_input_and_survives_restart() -> None:
     result = service.advance_manual(world_id, expected_tick=1)
     linked = repository.list_decision_opportunities(world_id)[0]
     assert linked.response_directive_id is not None
-    assert any(directive.id == linked.response_directive_id for directive in result.world.directives)
+    assert any(
+        directive.id == linked.response_directive_id
+        for directive in result.world.directives
+    )
 
-    restarted = PostgresAttentionWorldRepository(database_url, producer=FixtureAttentionProducer())
+    restarted = PostgresAttentionWorldRepository(
+        database_url,
+        producer=FixtureAttentionProducer(),
+    )
     assert restarted.list_decision_opportunities(world_id)[0] == linked
 
 
@@ -187,7 +198,7 @@ def test_response_after_tick_input_freeze_is_assigned_to_next_future_tick() -> N
     release_resolver = Event()
     response_started = Event()
 
-    def blocking_resolver(world: WorldState, inputs: tuple) -> TickResult:
+    def blocking_resolver(world: WorldState, inputs: tuple[SimulationInput, ...]) -> TickResult:
         resolver_entered.set()
         assert release_resolver.wait(timeout=5)
         return engine.step(world, inputs=inputs)
@@ -221,7 +232,10 @@ def test_response_after_tick_input_freeze_is_assigned_to_next_future_tick() -> N
     assert current_tick.world.directives == ()
     assert queued.submitted_tick == 3
 
-    future = ScheduledTickService(engine, repository).advance_manual(world_id, expected_tick=2)
+    future = ScheduledTickService(engine, repository).advance_manual(
+        world_id,
+        expected_tick=2,
+    )
     assert any(directive.submitted_tick == 3 for directive in future.world.directives)
 
 
