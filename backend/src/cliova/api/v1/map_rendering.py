@@ -42,7 +42,7 @@ def _required_int(values: dict[str, str | int | float | bool], key: str) -> int:
 
 def _required_float(values: dict[str, str | int | float | bool], key: str) -> float:
     value = values.get(key)
-    if type(value) not in {int, float}:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise ValueError(f"generation parameter {key!r} must be numeric")
     return float(value)
 
