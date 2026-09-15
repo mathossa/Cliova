@@ -94,9 +94,7 @@ class SeasonalSubsistenceAccessDomain:
                 *tuple(access.region_id for access in (desired or relationship.temporary_access)),
             )
             event_kind = (
-                "seasonal-subsistence-access"
-                if desired
-                else "seasonal-subsistence-access-ended"
+                "seasonal-subsistence-access" if desired else "seasonal-subsistence-access-ended"
             )
             events.append(
                 EventProposal(
@@ -257,9 +255,7 @@ def _access_change(
         - sum(access.access_share for access in relationship.temporary_access),
         6,
     )
-    attributes: list[ChangeAttribute] = [
-        ChangeAttribute(key="access.count", value=len(desired))
-    ]
+    attributes: list[ChangeAttribute] = [ChangeAttribute(key="access.count", value=len(desired))]
     for index, access in enumerate(desired):
         prefix = f"access.{index}"
         attributes.extend(
@@ -316,8 +312,7 @@ def _validate_access(
     if len(desired) > 1:
         raise ValueError("initial seasonal access model allows one external region per society")
     neighbor_ids = {
-        region_id
-        for region_id, _ in _direct_neighbors(world, relationship.core_region_id)
+        region_id for region_id, _ in _direct_neighbors(world, relationship.core_region_id)
     }
     for access in desired:
         if access.production_method != "pastoralism":
@@ -335,9 +330,7 @@ def _access_reason(
 ) -> str:
     assert world.geography is not None
     core = next(
-        region
-        for region in world.geography.regions
-        if region.id == relationship.core_region_id
+        region for region in world.geography.regions if region.id == relationship.core_region_id
     )
     if not desired:
         return f"{relationship.society_id.value} ended temporary pastoral access from {core.key}."
@@ -356,8 +349,4 @@ def _access_reason(
 
 
 def _relevant_causes(context: TickContext, society_id: EntityId) -> tuple[UUID, ...]:
-    return tuple(
-        event.id
-        for event in context.prior_events
-        if society_id in event.subjects
-    )
+    return tuple(event.id for event in context.prior_events if society_id in event.subjects)
