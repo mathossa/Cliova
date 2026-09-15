@@ -46,6 +46,36 @@ For each candidate record:
 - **Attribution/NOTICE:** none for Cliova under this decision because no scikit-image code is distributed or copied.
 - **Rationale:** watershed is a mature segmentation algorithm, but adding scikit-image/SciPy solely for aggregate world partitioning is unnecessary while the already-present NetworkX graph-Voronoi implementation meets the deterministic partition requirement with a smaller dependency surface.
 
+### `barrulus/settlemaker`
+
+- **Upstream:** `barrulus/settlemaker`; seeded permanent-settlement generation, roads, wards/parcels, walls/gates, building placement, harbour/water handling, SVG and GeoJSON for issue #61.
+- **Revision:** annotated release tag `v3.0.1`, commit `809babc9aaef981d726b025068ed4637741f2230` (inspected on 2026-09-15).
+- **License/SPDX:** `GPL-3.0-only`; verified from `package.json`, `LICENSE` and upstream `NOTICE`.
+- **Classification:** `licensed-reusable`.
+- **Reuse mode:** `dependency`; the web presentation layer pins `settlemaker@3.0.1` and adapts its public `generateSettlement` SVG/GeoJSON outputs. No Settlemaker implementation source is copied into Cliova.
+- **Attribution/NOTICE:** preserve GPL-3.0-only licensing/provenance and Settlemaker's attribution to TownGeneratorOS. Cliova records the direct dependency and lineage in `THIRD_PARTY_NOTICES.md`; the npm package retains its own `LICENSE` and `NOTICE`. Settlemaker's separately licensed symbol collections are not copied into Cliova source.
+- **Rationale:** Settlemaker already implements the substantial solved geometry #61 needs: seeded Voronoi/settlement generation, road/street topology, wards and building subdivision, walls/gates, coastline/harbour placement, SVG assembly and structured GeoJSON. Cliova therefore adds only a thin authority/projection adapter, stable Cliova feature IDs and structure mappings. Settlemaker GeoJSON IDs are treated as version-scoped source identifiers, not durable simulation identity; its nondeterministic `generated_at` metadata is not copied into Cliova's normalized feature contract.
+
+### `watabou/TownGeneratorOS`
+
+- **Upstream:** `watabou/TownGeneratorOS`; upstream Haxe lineage for Settlemaker's town-generation algorithms.
+- **Revision:** `master` commit `7fbc87a9398cc508af24de93f79cf2ad027f352b` (inspected on 2026-09-15).
+- **License/SPDX:** `GPL-3.0-only`; the repository distributes GNU GPL version 3 text without an "or later" grant, consistent with Settlemaker's NOTICE classification of the upstream lineage.
+- **Classification:** `licensed-reusable`.
+- **Reuse mode:** no direct dependency or copied/adapted code; Cliova consumes the lineage only through the licensed Settlemaker dependency.
+- **Attribution/NOTICE:** preserve TownGeneratorOS attribution as carried by Settlemaker's NOTICE and Cliova's `THIRD_PARTY_NOTICES.md` entry.
+- **Rationale:** the actual Haxe `Model`/geometry sources were inspected to verify lineage and that the upstream project genuinely contains seeded Voronoi, walls, streets and ward generation. Directly porting or depending on the older Haxe implementation would duplicate the maintained TypeScript dependency and is therefore unnecessary.
+
+### `Siddharth-s/Unity-Procedural-City-Campus-Generator`
+
+- **Upstream:** `Siddharth-s/Unity-Procedural-City-Campus-Generator`; inspected during the focused OSS search for a temporary/seasonal-camp layout implementation required by issue #61.
+- **Revision:** `master` commit `aef5a16a64d6ca4517ef9ea1482f3da1aa9e298a` (inspected on 2026-09-15).
+- **License/SPDX:** `unknown`; no repository `LICENSE` file was present at the inspected revision.
+- **Classification:** `rejected`.
+- **Reuse mode:** `rejected`; no code, constants, structure or assets are reused.
+- **Attribution/NOTICE:** none, because nothing is incorporated.
+- **Rationale:** despite the search-name match on "camp", this is a Unity 3D city/campus road-network editor script, not a tents/encampment generator, and it lacks a verified reusable license. #61 therefore keeps the custom camp path deliberately small: deterministic radial shelters, informal paths and simple authoritative-structure footprints only, without implementing mature city-geometry algorithms.
+
 ### `tan-zhuo/genesis`
 
 - **Upstream:** `tan-zhuo/genesis`; potentially relevant to simulation concepts, phase ordering and observable game behavior.
