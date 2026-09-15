@@ -190,11 +190,10 @@ def test_presentation_geometry_covers_world_without_becoming_simulation_cells() 
     assert {geometry.region_id for geometry in presentation.regions} == {
         region.id for region in geography.regions
     }
-    assert sum(
-        run.x_stop - run.x_start
-        for geometry in presentation.regions
-        for run in geometry.runs
-    ) == presentation.width * presentation.height
+    assert (
+        sum(run.x_stop - run.x_start for geometry in presentation.regions for run in geometry.runs)
+        == presentation.width * presentation.height
+    )
     land_cells = sum(run.x_stop - run.x_start for run in presentation.land_runs)
     assert 0 < land_cells < presentation.width * presentation.height
 
