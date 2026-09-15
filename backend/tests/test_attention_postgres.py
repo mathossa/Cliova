@@ -114,6 +114,61 @@ def _response_value(
     )
 
 
+def _run_responded_replay() -> tuple[
+    WorldState,
+    UUID,
+    DecisionOpportunityStatus,
+    int | None,
+    UUID | None,
+]:
+    _, repository, world_id = _fresh_repository(producer=FixtureAttentionProducer())
+    service = ScheduledTickService(create_simulation_engine(), repository)
+    service.advance_manual(world_id, expected_tick=0)
+    opportunity = repository.list_decision_opportunities(world_id)[0]
+    repository.queue_decision_response(
+        world_id,
+        opportunity_id=opportunity.id,
+        value=_response_value(repository, world_id),
+    )
+    result = service.advance_manual(world_id, expected_tick=1)
+    responded = repository.list_decision_opportunities(world_id)[0]
+    return (
+        result.world,
+        responded.id,
+        responded.status,
+        responded.response_submitted_tick,
+        responded.response_directive_id,
+    )
+
+
+def _run_expired_replay() -> tuple[
+    WorldState,
+    UUID,
+    DecisionOpportunityStatus,
+    int | None,
+]:
+    _, repository, world_id = _fresh_repository(
+        producer=FixtureAttentionProducer(expires_at_tick=2)
+    )
+    service = ScheduledTickService(create_simulation_engine(), repository)
+    service.advance_manual(world_id, expected_tick=0)
+    service.advance_manual(world_id, expected_tick=1)
+    expired = repository.list_decision_opportunities(world_id)[0]
+    return result_tuple(repository.load_world(world_id), expired)
+
+
+def result_tuple(
+    world: WorldState,
+    opportunity: DecisionOpportunity,
+) -> tuple[WorldState, UUID, DecisionOpportunityStatus, int | None]:
+    return (
+        world,
+        opportunity.id,
+        opportunity.status,
+        opportunity.expires_at_tick,
+    )
+
+
 def test_unanswered_opportunity_never_blocks_tick_and_expires_deterministically() -> None:
     database_url, repository, world_id = _fresh_repository(
         producer=FixtureAttentionProducer(expires_at_tick=2)
@@ -181,6 +236,25 @@ def test_response_reuses_future_directive_input_and_survives_restart() -> None:
         producer=FixtureAttentionProducer(),
     )
     assert restarted.list_decision_opportunities(world_id)[0] == linked
+
+
+def test_responded_lifecycle_replays_deterministically() -> None:
+    first = _run_responded_replay()
+    second = _run_responded_replay()
+
+    assert first == second
+    assert first[2] is DecisionOpportunityStatus.RESPONDED
+    assert first[3] == 2
+    assert first[4] is not None
+
+
+def test_non_response_expiry_replays_deterministically() -> None:
+    first = _run_expired_replay()
+    second = _run_expired_replay()
+
+    assert first == second
+    assert first[2] is DecisionOpportunityStatus.EXPIRED
+    assert first[3] == 2
 
 
 def test_response_after_tick_input_freeze_is_assigned_to_next_future_tick() -> None:
