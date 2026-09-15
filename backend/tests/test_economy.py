@@ -162,7 +162,9 @@ def test_food_shortage_becomes_next_tick_population_pressure_without_direct_muta
         and dry.id in event.subjects
     )
     population_event = next(
-        event for event in stressed.events if event.source == "population" and dry.id in event.subjects
+        event
+        for event in stressed.events
+        if event.source == "population" and dry.id in event.subjects
     )
     assert pressure_event.cause_event_ids == (shortage_event.id,)
     assert population_event.cause_event_ids == (pressure_event.id,)
@@ -214,7 +216,9 @@ def test_recovery_clears_shortage_and_rebuilds_food_security_pressure() -> None:
     recovery_event = next(
         event
         for event in recovered.events
-        if event.source == "economy" and event.kind == "resource-recovery" and dry.id in event.subjects
+        if event.source == "economy"
+        and event.kind == "resource-recovery"
+        and dry.id in event.subjects
     )
 
     recovery_pressure = population_food_pressure_input(recovered.world, events=recovered.events)
