@@ -26,6 +26,7 @@ DirectiveStatus = Literal[
     "failed",
     "completed",
 ]
+PressureMilestone = Literal["emerging", "elevated", "crisis", "recovering", "resolved"]
 ChangeAttributeValue = str | int | float | bool
 RNG_ALGORITHM: Final = "pcg64-sha256-v1"
 
@@ -327,6 +328,29 @@ class DirectiveState(SimulationModel):
         return self
 
 
+class ScenarioPressureState(SimulationModel):
+    """Persistent scenario-owned pressure interpreted from authoritative domain facts."""
+
+    id: UUID
+    key: NonEmptyString
+    region_id: EntityId
+    subject_id: EntityId | None = None
+    intensity: UnitInterval = 0.0
+    milestone: PressureMilestone = "emerging"
+    age_ticks: NonNegativeInt = 0
+    cause_event_ids: tuple[UUID, ...] = ()
+
+    @model_validator(mode="after")
+    def validate_scope(self) -> "ScenarioPressureState":
+        if self.region_id.kind != "region":
+            raise ValueError("scenario pressure region must identify a region")
+        if self.subject_id is not None and self.subject_id.kind not in {"society", "polity"}:
+            raise ValueError("scenario pressure subject must identify a society or polity")
+        if len(self.cause_event_ids) != len(set(self.cause_event_ids)):
+            raise ValueError("scenario pressure cause event IDs must be unique")
+        return self
+
+
 class CapabilityProgress(SimulationModel):
     capability_key: NonEmptyString
     proficiency: UnitInterval = 0.0
@@ -396,6 +420,7 @@ class WorldState(SimulationModel):
     knowledge: KnowledgeDomainState | None = None
     governance: tuple[GovernanceState, ...] = ()
     directives: tuple[DirectiveState, ...] = ()
+    pressures: tuple[ScenarioPressureState, ...] = ()
 
     @model_validator(mode="after")
     def check_world_id(self) -> "WorldState":
@@ -450,6 +475,21 @@ class WorldState(SimulationModel):
         ids = [state.id for state in self.directives]
         if len(ids) != len(set(ids)):
             raise ValueError("directive IDs must be unique")
+        return self
+
+    @model_validator(mode="after")
+    def validate_pressures(self) -> "WorldState":
+        ids = [state.id for state in self.pressures]
+        scopes = [(state.key, state.region_id, state.subject_id) for state in self.pressures]
+        if len(ids) != len(set(ids)):
+            raise ValueError("scenario pressure IDs must be unique")
+        if len(scopes) != len(set(scopes)):
+            raise ValueError("scenario pressure scopes must be unique")
+        if self.pressures and self.geography is None:
+            raise ValueError("scenario pressures require world geography")
+        region_ids = {region.id for region in self.geography.regions} if self.geography else set()
+        if any(state.region_id not in region_ids for state in self.pressures):
+            raise ValueError("scenario pressure regions must reference world geography")
         return self
 
     @property
