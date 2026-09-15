@@ -7,6 +7,12 @@ from fastapi import APIRouter, Depends, Query, Request, status
 
 from cliova.api.dependencies import get_repository
 from cliova.api.errors import ApiError
+from cliova.api.v1.local_map_models import (
+    LocalMapRequest,
+    SettlementDetailResponse,
+    SettlementListResponse,
+)
+from cliova.api.v1.local_maps import local_map_request, settlement_detail, settlement_summary
 from cliova.api.v1.models import (
     CreateDevelopmentWorldRequest,
     DirectiveListResponse,
@@ -74,6 +80,54 @@ def get_regions(world_id: UUID, repository: RepositoryDependency) -> RegionStatu
         tick=world.time.tick,
         regions=region_statuses(world),
     )
+
+
+@router.get("/worlds/{world_id}/settlements", response_model=SettlementListResponse)
+def get_settlements(world_id: UUID, repository: RepositoryDependency) -> SettlementListResponse:
+    world = repository.load_world(world_id)
+    return SettlementListResponse(
+        world_id=world.id.value,
+        tick=world.time.tick,
+        settlements=tuple(
+            settlement_summary(settlement)
+            for settlement in sorted(
+                world.settlements.settlements,
+                key=lambda item: item.id.value.hex,
+            )
+        ),
+    )
+
+
+@router.get(
+    "/worlds/{world_id}/settlements/{settlement_id}",
+    response_model=SettlementDetailResponse,
+)
+def get_settlement(
+    world_id: UUID,
+    settlement_id: UUID,
+    repository: RepositoryDependency,
+) -> SettlementDetailResponse:
+    world = repository.load_world(world_id)
+    try:
+        return settlement_detail(world, settlement_id)
+    except KeyError as exc:
+        raise ApiError(404, "settlement_not_found", "Settlement does not exist.") from exc
+
+
+@router.get(
+    "/worlds/{world_id}/settlements/{settlement_id}/map",
+    response_model=LocalMapRequest,
+)
+def get_settlement_map(
+    world_id: UUID,
+    settlement_id: UUID,
+    repository: RepositoryDependency,
+) -> LocalMapRequest:
+    world = repository.load_world(world_id)
+    try:
+        return local_map_request(world, settlement_id)
+    except KeyError as exc:
+        raise ApiError(404, "settlement_not_found", "Settlement does not exist.") from exc
 
 
 @router.get("/worlds/{world_id}/societies", response_model=SocietyStatusResponse)
