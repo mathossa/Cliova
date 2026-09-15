@@ -1,35 +1,23 @@
-# Command Center shell
+# Command Center live integration
 
-The Simulation Lab defaults to the centralized presentation snapshot in
-`command-center.data.ts`. The map artwork and marker positions are illustrative.
+The Simulation Lab consumes the stable FastAPI `/api/v1` boundary from issue #15. Browser code imports the shared TypeScript DTOs from `packages/contracts/v1.ts`, then maps them into small presentation-only view models in `command-center.view.ts`. React does not import Python domain models or reproduce authoritative simulation rules.
 
-`CommandCenterLoader` accepts a `WorldClient`. Its `load()` resolves to a
-`WorldSnapshot`, or null when there is no world; rejection shows an unavailable
-state with retry. Pending requests show loading. Results from an unmounted
-request are ignored. Failed requests never fall back to preview data.
+`HttpCliovaApiClient` is the centralized HTTP boundary. In development the browser calls same-origin `/api/v1/...`; Next.js rewrites those requests to `CLIOVA_API_URL` (falling back to `NEXT_PUBLIC_API_BASE_URL` and then `http://localhost:8000`). Failed live requests remain visible as errors and never fall back to demo simulation data.
 
-`WorldSnapshot` is a frontend display model, not a public API contract.
-When API integration is implemented, adapt shared contracts inside the client
-boundary. Components receive data through props; no simulation rules run here.
-No backend endpoint or shared contract is introduced by this issue.
+`CommandCenterLoader` lists development worlds, loads one world plus regions, recent history and directives, and supports seeded development-world creation when none exist. Refresh is explicit. Directive submission and the development-only manual tick both revalidate the relevant world/history/directive data afterwards; no realtime polling or WebSocket layer is used.
 
-World status, history, region inspection and the command workspace are separate
-components. Only Northreach has preview region details: selecting other markers
-must show missing details rather than relabeling Northreach's statistics.
-Unimplemented controls are disabled; commands only produce preview responses.
+The strategic map and region artwork are presentation-only. API v1 does not expose map coordinates, so the browser deliberately does not infer simulation positions. Modules without an authoritative v1 projection are marked as not modeled rather than populated with placeholders.
 
 ## Focused validation
 
-Run `npm run lint:web`, `npm run typecheck:web` and `npm run build:web`.
+Run:
 
-Manual checks:
-- Inspect at 1440, 1280, 1024, 768 and 390 pixel widths; document must not scroll
-  horizontally (the module/status strips can scroll within their containers).
-- Select Northreach, then Kesh: Northreach statistics must disappear.
-- Open History and Directives, then return to Terminal.
-- Submit help/status and check that no world values change.
-- Inject a client resolving null, rejecting, or remaining pending into
-  CommandCenterLoader to inspect empty, unavailable and loading states.
-- With a client rejecting once then resolving a snapshot, retry must recover.
-- Inject a snapshot with empty feed/markers/metrics/pressures and null region;
-  panels should explain missing data without throwing.
+- `npm run test:web`
+- `npm run lint:web`
+- `npm run typecheck:web`
+- `npm run typecheck:contracts`
+- `npm run build:web`
+
+`npm run check:web` runs the full web sequence above.
+
+Manual checks should cover world switching/creation, API-down recovery, a directive queue → later lifecycle transition, manual-tick conflict feedback, empty history/directives, and responsive layout at desktop/mobile widths.
