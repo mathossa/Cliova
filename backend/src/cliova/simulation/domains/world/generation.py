@@ -462,11 +462,11 @@ def _connections(
             if x + 1 < width:
                 neighbour = int(labels[y, x + 1])
                 if current != neighbour:
-                    pairs.add(tuple(sorted((current, neighbour))))
+                    pairs.add((min(current, neighbour), max(current, neighbour)))
             if y + 1 < height:
                 neighbour = int(labels[y + 1, x])
                 if current != neighbour:
-                    pairs.add(tuple(sorted((current, neighbour))))
+                    pairs.add((min(current, neighbour), max(current, neighbour)))
 
     connections: list[RegionConnection] = []
     for a, b in sorted(pairs):
