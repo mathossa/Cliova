@@ -12,6 +12,8 @@ DirectiveStatusDto = Literal[
     "queued", "accepted", "partial", "delayed", "resisted", "failed", "completed"
 ]
 PressureMilestoneDto = Literal["emerging", "elevated", "crisis", "recovering", "resolved"]
+AttentionPriorityDto = Literal["informational", "important", "urgent"]
+DecisionOpportunityStatusDto = Literal["open", "responded", "expired"]
 MapVisibilityDto = Literal["full"]
 SettlementArchetypeDto = Literal["permanent", "seasonal_camp", "temporary_camp"]
 SettlementStatusDto = Literal["active", "dormant", "abandoned", "destroyed"]
@@ -215,6 +217,7 @@ class DirectiveSubmissionRequest(ApiModel):
     target: DirectiveTarget
     intent: DirectiveIntentDto = "strengthen_food_reserves"
     priority: DirectivePriorityDto = "normal"
+    decision_opportunity_id: UUID | None = None
 
 
 class QueuedDirective(ApiModel):
@@ -242,6 +245,47 @@ class DirectiveListResponse(ApiModel):
     world_id: UUID
     pending: tuple[QueuedDirective, ...] = ()
     directives: tuple[AuthoritativeDirective, ...] = ()
+
+
+class AttentionItemDto(ApiModel):
+    id: UUID
+    target: EntityRef | None = None
+    created_tick: int
+    created_year: int
+    category: str
+    priority: AttentionPriorityDto
+    context: str
+    related_event_ids: tuple[UUID, ...] = ()
+    related_subjects: tuple[EntityRef, ...] = ()
+
+
+class AttentionItemsResponse(ApiModel):
+    world_id: UUID
+    items: tuple[AttentionItemDto, ...] = ()
+
+
+class DecisionOpportunityDto(ApiModel):
+    id: UUID
+    target: DirectiveTarget
+    created_tick: int
+    created_year: int
+    category: str
+    context: str
+    related_event_ids: tuple[UUID, ...] = ()
+    related_subjects: tuple[EntityRef, ...] = ()
+    earliest_effect_tick: int
+    expires_at_tick: int | None = None
+    default_behavior: str
+    response_intent: DirectiveIntentDto
+    status: DecisionOpportunityStatusDto
+    response_queue_id: int | None = None
+    response_submitted_tick: int | None = None
+    response_directive_id: UUID | None = None
+
+
+class DecisionOpportunityListResponse(ApiModel):
+    world_id: UUID
+    opportunities: tuple[DecisionOpportunityDto, ...] = ()
 
 
 class ManualTickRequest(ApiModel):
