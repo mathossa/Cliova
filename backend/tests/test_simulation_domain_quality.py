@@ -7,7 +7,11 @@ from simulation_domain_quality import (
 )
 from simulation_quality import SimulationQualityError, assert_replay_equivalent
 
-from cliova.simulation.domains.economy import EconomyDomain, initialize_economy
+from cliova.simulation.domains.economy import (
+    EconomyDomain,
+    initialize_economy,
+    population_food_pressure_inputs,
+)
 from cliova.simulation.domains.knowledge import KnowledgeDomain, initialize_knowledge
 from cliova.simulation.domains.politics import GovernanceDomain, initialize_governance
 from cliova.simulation.domains.population import PopulationDomain, initialize_population
@@ -17,6 +21,7 @@ from cliova.simulation.types import (
     ExperienceTrack,
     GovernanceState,
     InstitutionProfile,
+    SimulationInput,
     SocietyKnowledgeState,
     WorldState,
     entity_id,
@@ -75,11 +80,27 @@ def _living_engine() -> SimulationEngine:
     )
 
 
+def _living_inputs(years: int) -> tuple[tuple[SimulationInput, ...], ...]:
+    """Build the existing economy -> population next-tick boundary deterministically."""
+    world = _living_world()
+    engine = _living_engine()
+    next_inputs: tuple[SimulationInput, ...] = ()
+    batches: list[tuple[SimulationInput, ...]] = []
+    for _ in range(years):
+        batches.append(next_inputs)
+        tick = engine.step(world, inputs=next_inputs)
+        next_inputs = population_food_pressure_inputs(tick.world, events=tick.events)
+        world = tick.world
+    return tuple(batches)
+
+
 def test_current_living_domain_stack_replays_and_holds_invariants() -> None:
+    years = 12
     first, second = assert_replay_equivalent(
         _living_world,
         _living_engine,
-        years=12,
+        years=years,
+        inputs=_living_inputs(years),
     )
 
     assert_domain_stack_invariants(first, knowledge_domain=KnowledgeDomain())
