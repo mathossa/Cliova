@@ -77,7 +77,9 @@ def _database_url() -> str:
     return url
 
 
-def _repository(*, expires_at_tick: int | None = None) -> tuple[PostgresAttentionWorldRepository, UUID]:
+def _repository(
+    *, expires_at_tick: int | None = None
+) -> tuple[PostgresAttentionWorldRepository, UUID]:
     database_url = _database_url()
     apply_migrations(database_url)
     with psycopg.connect(database_url) as connection:
@@ -103,9 +105,13 @@ async def test_api_queries_attention_separately_and_reuses_directive_submission(
     app = create_app()
     app.dependency_overrides[get_repository] = lambda: repository
     transport = httpx2.ASGITransport(app=app)
-    async with httpx2.AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with httpx2.AsyncClient(
+        transport=transport, base_url="http://testserver"
+    ) as client:
         attention = await client.get(f"/api/v1/worlds/{world_id}/attention-items")
-        decisions = await client.get(f"/api/v1/worlds/{world_id}/decision-opportunities")
+        decisions = await client.get(
+            f"/api/v1/worlds/{world_id}/decision-opportunities"
+        )
         history = await client.get(f"/api/v1/worlds/{world_id}/history")
 
         assert attention.status_code == decisions.status_code == history.status_code == 200
@@ -129,13 +135,18 @@ async def test_api_queries_attention_separately_and_reuses_directive_submission(
         assert response.status_code == 202
         assert response.json()["submitted_tick"] == 2
 
-        open_after = await client.get(f"/api/v1/worlds/{world_id}/decision-opportunities")
+        open_after = await client.get(
+            f"/api/v1/worlds/{world_id}/decision-opportunities"
+        )
         responded = await client.get(
             f"/api/v1/worlds/{world_id}/decision-opportunities",
             params={"status": "responded"},
         )
         assert open_after.json()["opportunities"] == []
-        assert responded.json()["opportunities"][0]["response_queue_id"] == response.json()["queue_id"]
+        assert (
+            responded.json()["opportunities"][0]["response_queue_id"]
+            == response.json()["queue_id"]
+        )
 
         duplicate = await client.post(
             f"/api/v1/worlds/{world_id}/directives",
@@ -151,7 +162,10 @@ async def test_api_queries_attention_separately_and_reuses_directive_submission(
             },
         )
         assert duplicate.status_code == 409
-        assert duplicate.json()["error"]["code"] == "decision_opportunity_already_responded"
+        assert (
+            duplicate.json()["error"]["code"]
+            == "decision_opportunity_already_responded"
+        )
 
 
 @pytest.mark.anyio
@@ -165,7 +179,9 @@ async def test_api_returns_stable_error_for_expired_opportunity() -> None:
     app = create_app()
     app.dependency_overrides[get_repository] = lambda: repository
     transport = httpx2.ASGITransport(app=app)
-    async with httpx2.AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with httpx2.AsyncClient(
+        transport=transport, base_url="http://testserver"
+    ) as client:
         response = await client.post(
             f"/api/v1/worlds/{world_id}/directives",
             json={
