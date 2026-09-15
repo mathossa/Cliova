@@ -12,7 +12,15 @@ NonEmptyString = Annotated[str, Field(strict=True, min_length=1)]
 UnitInterval = Annotated[float, Field(ge=0.0, le=1.0)]
 PositiveFloat = Annotated[float, Field(gt=0.0)]
 PositiveUnitInterval = Annotated[float, Field(gt=0.0, le=1.0)]
-EntityKind = Literal["world", "region", "society", "polity", "individual"]
+EntityKind = Literal[
+    "world",
+    "region",
+    "society",
+    "polity",
+    "individual",
+    "settlement",
+    "structure",
+]
 TerrainKind = Literal["plain", "plateau", "basin", "highland", "forest", "wetland", "coast"]
 BiomeKind = Literal["temperate", "semi_arid", "arid", "boreal", "tropical", "alpine"]
 ResourceKind = Literal["food", "timber", "stone", "metal_ore"]
@@ -29,6 +37,9 @@ DirectiveStatus = Literal[
     "completed",
 ]
 PressureMilestone = Literal["emerging", "elevated", "crisis", "recovering", "resolved"]
+SettlementArchetype = Literal["permanent", "seasonal_camp", "temporary_camp"]
+SettlementStatus = Literal["active", "dormant", "abandoned", "destroyed"]
+StructureStatus = Literal["active", "damaged", "destroyed"]
 ChangeAttributeValue = str | int | float | bool
 RNG_ALGORITHM: Final = "pcg64-sha256-v1"
 
@@ -518,8 +529,97 @@ class KnowledgeDomainState(SimulationModel):
         return self
 
 
+class SettlementState(SimulationModel):
+    """One persistent settlement/camp identity; association never implies territorial control."""
+
+    id: EntityId
+    key: NonEmptyString
+    name: NonEmptyString
+    region_id: EntityId
+    associated_subject: EntityId | None = None
+    established_year: Annotated[int, Field(strict=True)]
+    population_estimate: NonNegativeInt = 0
+    archetype: SettlementArchetype
+    status: SettlementStatus = "active"
+    cause_event_ids: tuple[UUID, ...] = ()
+
+    @model_validator(mode="after")
+    def validate_settlement(self) -> "SettlementState":
+        if self.id.kind != "settlement":
+            raise ValueError("SettlementState.id must identify a settlement")
+        if self.region_id.kind != "region":
+            raise ValueError("settlement region must identify a region")
+        if self.associated_subject is not None and self.associated_subject.kind not in {
+            "society",
+            "polity",
+        }:
+            raise ValueError("settlement association must identify a society or polity")
+        if len(self.cause_event_ids) != len(set(self.cause_event_ids)):
+            raise ValueError("settlement cause event IDs must be unique")
+        return self
+
+
+class StructureState(SimulationModel):
+    """One authoritative strategically meaningful structure instance, never visual fabric."""
+
+    id: EntityId
+    key: NonEmptyString
+    definition_id: NonEmptyString
+    settlement_id: EntityId
+    established_year: Annotated[int, Field(strict=True)]
+    status: StructureStatus = "active"
+    cause_event_ids: tuple[UUID, ...] = ()
+
+    @model_validator(mode="after")
+    def validate_structure(self) -> "StructureState":
+        if self.id.kind != "structure":
+            raise ValueError("StructureState.id must identify a structure")
+        if self.settlement_id.kind != "settlement":
+            raise ValueError("structure must reference a settlement ID")
+        if len(self.cause_event_ids) != len(set(self.cause_event_ids)):
+            raise ValueError("structure cause event IDs must be unique")
+        return self
+
+
+class SettlementDomainState(SimulationModel):
+    """Authoritative settlement/structure existence; ordinary visual fabric is excluded."""
+
+    settlements: tuple[SettlementState, ...] = ()
+    structures: tuple[StructureState, ...] = ()
+
+    @model_validator(mode="after")
+    def validate_state(self) -> "SettlementDomainState":
+        settlement_ids = [state.id for state in self.settlements]
+        settlement_keys = [state.key for state in self.settlements]
+        structure_ids = [state.id for state in self.structures]
+        structure_keys = [state.key for state in self.structures]
+        if len(settlement_ids) != len(set(settlement_ids)):
+            raise ValueError("settlement IDs must be unique")
+        if len(settlement_keys) != len(set(settlement_keys)):
+            raise ValueError("settlement keys must be unique")
+        if len(structure_ids) != len(set(structure_ids)):
+            raise ValueError("structure IDs must be unique")
+        if len(structure_keys) != len(set(structure_keys)):
+            raise ValueError("structure keys must be unique")
+        known_settlements = set(settlement_ids)
+        if any(state.settlement_id not in known_settlements for state in self.structures):
+            raise ValueError("structures must reference authoritative settlements")
+        return self
+
+    def settlement(self, settlement_id: EntityId) -> SettlementState:
+        for settlement in self.settlements:
+            if settlement.id == settlement_id:
+                return settlement
+        raise KeyError(settlement_id)
+
+    def structures_for(self, settlement_id: EntityId) -> tuple[StructureState, ...]:
+        return tuple(
+            structure for structure in self.structures if structure.settlement_id == settlement_id
+        )
+
+
 class WorldState(SimulationModel):
-    """Authoritative aggregate; optional domain state keeps legacy snapshots loadable."""
+    """Authoritative aggregate; optional/default domain state keeps legacy snapshots loadable."""
 
     id: EntityId
     seed: Annotated[int, Field(strict=True)]
@@ -533,6 +633,7 @@ class WorldState(SimulationModel):
     governance: tuple[GovernanceState, ...] = ()
     directives: tuple[DirectiveState, ...] = ()
     pressures: tuple[ScenarioPressureState, ...] = ()
+    settlements: SettlementDomainState = Field(default_factory=SettlementDomainState)
 
     @model_validator(mode="after")
     def check_world_id(self) -> "WorldState":
@@ -629,6 +730,23 @@ class WorldState(SimulationModel):
         region_ids = {region.id for region in self.geography.regions} if self.geography else set()
         if any(state.region_id not in region_ids for state in self.pressures):
             raise ValueError("scenario pressure regions must reference world geography")
+        return self
+
+    @model_validator(mode="after")
+    def validate_settlements(self) -> "WorldState":
+        if not self.settlements.settlements and not self.settlements.structures:
+            return self
+        if self.geography is None:
+            raise ValueError("settlement state requires world geography")
+        region_ids = {region.id for region in self.geography.regions}
+        for settlement in self.settlements.settlements:
+            if settlement.region_id not in region_ids:
+                raise ValueError("settlements must reference world geography")
+            if settlement.id != entity_id(self.id, "settlement", settlement.key):
+                raise ValueError("settlement ID must match its deterministic world-scoped key")
+        for structure in self.settlements.structures:
+            if structure.id != entity_id(self.id, "structure", structure.key):
+                raise ValueError("structure ID must match its deterministic world-scoped key")
         return self
 
     @property
