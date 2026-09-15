@@ -13,6 +13,9 @@ export type DirectiveStatus =
   | "failed"
   | "completed";
 export type PressureMilestone = "emerging" | "elevated" | "crisis" | "recovering" | "resolved";
+export type MapVisibility = "full";
+export type SettlementArchetype = "permanent" | "seasonal_camp" | "temporary_camp";
+export type SettlementStatus = "active" | "dormant" | "abandoned" | "destroyed";
 
 export type EntityRef = {
   kind: EntityKind;
@@ -73,6 +76,65 @@ export type RegionStatus = {
   pressures: PressureStatus[];
 };
 
+export type MapMultiPolygon = {
+  type: "MultiPolygon";
+  coordinates: number[][][][];
+};
+
+export type TemporaryPresence = {
+  society_id: string;
+  production_method: string;
+  access_share: number;
+};
+
+export type MapRegionFeature = {
+  id: string;
+  key: string;
+  centroid: [number, number];
+  geometry: MapMultiPolygon;
+  terrain: string;
+  biome: string;
+  surface: string;
+  land_fraction: number;
+  mean_elevation: number;
+  population: number | null;
+  food_shortage_severity: number | null;
+  pressure_intensity: number | null;
+  core_society_ids: string[];
+  temporary_presence: TemporaryPresence[];
+  visibility: MapVisibility;
+};
+
+export type SettlementMapMarker = {
+  id: string;
+  region_id: string;
+  name: string;
+  archetype: SettlementArchetype;
+  status: SettlementStatus;
+  population_estimate: number;
+  associated_subject: EntityRef | null;
+  position: [number, number];
+  position_precision: "region_centroid";
+  structure_count: number;
+  local_map_path: string;
+  visibility: MapVisibility;
+};
+
+export type WorldMapResponse = {
+  world_id: string;
+  tick: number;
+  available: boolean;
+  unavailable_reason: string | null;
+  render_version: string;
+  coordinate_system: "cliova-grid-bottom-left-v1";
+  extent_width: number;
+  extent_height: number;
+  base_map_url: string | null;
+  visibility: MapVisibility;
+  regions: MapRegionFeature[];
+  settlements: SettlementMapMarker[];
+};
+
 export type WorldListItem = {
   id: string;
   tick: number;
@@ -113,6 +175,7 @@ export type SocietyStatusResponse = {
 export type CreateDevelopmentWorldRequest = {
   seed: number;
   world_key?: string;
+  generated_geography?: boolean;
 };
 
 export type HistoryEvent = {
