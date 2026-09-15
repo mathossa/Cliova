@@ -29,6 +29,7 @@ Af en toe ontstaan **notable individuals**: uitzonderlijke wetenschappers, hervo
 5. **Aggregates by default.** Geen miljoenen individuele NPC’s; alleen betekenisvolle personen worden individueel gesimuleerd.
 6. **Systems create stories.** Scenario’s en kronieken volgen uit de simulatie.
 7. **Persistent multiplayer.** Andere spelers zijn echte politieke en economische actoren in dezelfde geschiedenis.
+8. **Tunable systems, not hidden magic numbers.** Bewuste balansparameters zijn expliciet en centraal configureerbaar. Admin-tuning verandert simulatierules, niet rechtstreeks de huidige wereldstatus.
 
 ## Vision documents
 
