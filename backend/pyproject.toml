@@ -12,7 +12,8 @@ dependencies = [
   "uvicorn[standard]>=0.34,<1",
   "pydantic>=2.10,<3",
   "numpy>=2,<3",
-  "networkx>=3.4,<4"
+  "networkx>=3.4,<4",
+  "psycopg[binary]>=3.2,<4"
 ]
 
 [project.optional-dependencies]
@@ -25,8 +26,7 @@ dev = [
   "pytest>=8,<10",
   "httpx2>=2,<3",
   "ruff>=0.9,<1",
-  "mypy>=1.14,<2",
-  "psycopg[binary]>=3.2,<4"
+  "mypy>=1.14,<2"
 ]
 
 [project.scripts]
