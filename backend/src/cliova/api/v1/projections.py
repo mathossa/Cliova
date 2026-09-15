@@ -2,7 +2,6 @@
 
 from typing import Literal, cast
 
-from cliova.application.persistence import QueuedSimulationInput
 from cliova.api.v1.models import (
     AuthoritativeDirective,
     DirectiveTarget,
@@ -18,6 +17,7 @@ from cliova.api.v1.models import (
     WorldListItem,
     WorldSummary,
 )
+from cliova.application.persistence import QueuedSimulationInput
 from cliova.simulation.types import EntityId, SimulationEvent, WorldState
 
 
@@ -65,7 +65,9 @@ def pressure_statuses(world: WorldState) -> tuple[PressureStatus, ...]:
             id=pressure.id,
             key=pressure.key,
             region_id=pressure.region_id.value,
-            subject=entity_ref(pressure.subject_id) if pressure.subject_id is not None else None,
+            subject=(
+                entity_ref(pressure.subject_id) if pressure.subject_id is not None else None
+            ),
             intensity=pressure.intensity,
             milestone=pressure.milestone,
             age_ticks=pressure.age_ticks,
@@ -125,7 +127,9 @@ def region_statuses(world: WorldState) -> tuple[RegionStatus, ...]:
                 population=population,
                 food=_food_status(world, region.id),
                 pressures=tuple(
-                    pressure for pressure in active_pressures if pressure.region_id == region.id.value
+                    pressure
+                    for pressure in active_pressures
+                    if pressure.region_id == region.id.value
                 ),
             )
         )
