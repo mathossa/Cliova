@@ -15,6 +15,7 @@ EntityKind = Literal["world", "region", "society", "polity", "individual"]
 TerrainKind = Literal["plain", "plateau", "basin", "highland", "forest", "wetland", "coast"]
 BiomeKind = Literal["temperate", "semi_arid", "arid", "boreal", "tropical", "alpine"]
 ResourceKind = Literal["food", "timber", "stone", "metal_ore"]
+FoodProductionMethod = Literal["cultivation", "pastoralism", "foraging", "fishing"]
 DirectiveIntent = Literal["strengthen_food_reserves"]
 DirectivePriority = Literal["low", "normal", "high"]
 DirectiveStatus = Literal[
@@ -213,6 +214,27 @@ class PopulationDomainState(SimulationModel):
         raise KeyError(region_id)
 
 
+class FoodProductionMethodState(SimulationModel):
+    """Explain one method's labour, capability and sustainable-yield constraints."""
+
+    method: FoodProductionMethod
+    regional_potential: UnitInterval
+    allocated_labour: NonNegativeFloat
+    capability_modifier: PositiveFloat = 1.0
+    labour_limited_output: NonNegativeFloat
+    sustainable_limit: NonNegativeFloat
+    output: NonNegativeFloat
+
+    @model_validator(mode="after")
+    def validate_limits(self) -> "FoodProductionMethodState":
+        tolerance = 1e-6
+        if self.output > self.labour_limited_output + tolerance:
+            raise ValueError("food method output cannot exceed its labour/capability limit")
+        if self.output > self.sustainable_limit + tolerance:
+            raise ValueError("food method output cannot exceed its sustainable regional limit")
+        return self
+
+
 class ResourceEconomyState(SimulationModel):
     """One regional resource flow plus the reserve carried into future ticks."""
 
@@ -225,6 +247,16 @@ class ResourceEconomyState(SimulationModel):
     surplus: NonNegativeFloat = 0.0
     deficit: NonNegativeFloat = 0.0
     shortage_severity: UnitInterval = 0.0
+    food_production: tuple[FoodProductionMethodState, ...] = ()
+
+    @model_validator(mode="after")
+    def validate_food_production(self) -> "ResourceEconomyState":
+        if self.resource != "food" and self.food_production:
+            raise ValueError("food production methods belong only to the aggregate food resource")
+        methods = [method.method for method in self.food_production]
+        if len(methods) != len(set(methods)):
+            raise ValueError("food production methods must be unique")
+        return self
 
 
 class RegionalEconomyState(SimulationModel):
