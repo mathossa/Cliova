@@ -56,9 +56,7 @@ async def _api_error_handler(_request: Request, exc: Exception) -> JSONResponse:
 async def _validation_handler(_request: Request, exc: Exception) -> JSONResponse:
     validation = cast(RequestValidationError, exc)
     errors = validation.errors()
-    query_only = bool(errors) and all(
-        error.get("loc", (None,))[0] == "query" for error in errors
-    )
+    query_only = bool(errors) and all(error.get("loc", (None,))[0] == "query" for error in errors)
     details = tuple(
         ApiErrorDetail(
             location=".".join(str(part) for part in error.get("loc", ())),
