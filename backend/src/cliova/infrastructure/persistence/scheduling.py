@@ -255,6 +255,8 @@ class PostgresScheduledWorldRepository(PostgresWorldRepository):
 
             next_eligible_at = cast(datetime | None, schedule["next_eligible_at"])
             if enforce_due and next_eligible_at is not None and next_eligible_at > now:
+                if schedule["last_completed_run_id"] is not None:
+                    self._record_duplicate_attempt(connection, world_id)
                 return None
 
             current_run_id = cast(UUID | None, schedule["current_run_id"])
@@ -272,14 +274,7 @@ class PostgresScheduledWorldRepository(PostgresWorldRepository):
                 if current["status"] == TickRunStatus.RUNNING.value:
                     claim_expires_at = cast(datetime, current["claim_expires_at"])
                     if claim_expires_at > now:
-                        connection.execute(
-                            """
-                            UPDATE cliova_world_schedules
-                               SET duplicate_attempt_count = duplicate_attempt_count + 1
-                             WHERE world_id = %s
-                            """,
-                            (world_id,),
-                        )
+                        self._record_duplicate_attempt(connection, world_id)
                         if strict:
                             raise TickConflictError(f"world {world_id} already has a running tick")
                         return None
@@ -381,6 +376,16 @@ class PostgresScheduledWorldRepository(PostgresWorldRepository):
                 started_at=now,
                 attempt_count=attempt_count,
             )
+
+    def _record_duplicate_attempt(self, connection: DbConnection, world_id: UUID) -> None:
+        connection.execute(
+            """
+            UPDATE cliova_world_schedules
+               SET duplicate_attempt_count = duplicate_attempt_count + 1
+             WHERE world_id = %s
+            """,
+            (world_id,),
+        )
 
     def _reclaim_expired_run(
         self,
