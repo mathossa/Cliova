@@ -83,7 +83,8 @@ export function StrategicMap({
   );
 
   useEffect(() => {
-    if (!mapData.available || !containerRef.current || !mapData.base_map_url) {
+    const baseMapUrl = mapData.base_map_url;
+    if (!mapData.available || !containerRef.current || !baseMapUrl) {
       setRuntimeState(mapData.available ? "error" : "ready");
       return;
     }
@@ -105,7 +106,7 @@ export function StrategicMap({
       });
       mapRef.current = map;
       map.attributionControl.addAttribution(`Leaflet ${LEAFLET_VERSION} · non-Earth game coordinates`);
-      L.imageOverlay(mapData.base_map_url, bounds, { interactive: false, zIndex: 1 })
+      L.imageOverlay(baseMapUrl, bounds, { interactive: false, zIndex: 1 })
         .on("error", () => setBaseError(true))
         .addTo(map);
 
