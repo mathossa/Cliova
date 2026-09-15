@@ -433,11 +433,7 @@ def _food_method_opportunities(
             reserved = _reserved_external_share(world, region_id, rule.method)
             local = _quantity(local * (1.0 - reserved))
             relationship = next(
-                (
-                    state
-                    for state in world.society_regions
-                    if state.core_region_id == region_id
-                ),
+                (state for state in world.society_regions if state.core_region_id == region_id),
                 None,
             )
             if relationship is not None:
@@ -478,8 +474,7 @@ def _directly_adjacent(world: WorldState, a: EntityId, b: EntityId) -> bool:
     if geography is None:
         return False
     return any(
-        (connection.a == a and connection.b == b)
-        or (connection.a == b and connection.b == a)
+        (connection.a == a and connection.b == b) or (connection.a == b and connection.b == a)
         for connection in geography.connections
     )
 
