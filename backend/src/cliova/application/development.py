@@ -11,6 +11,7 @@ from cliova.simulation.domains.population import (
     initialize_society_region_relationships,
 )
 from cliova.simulation.domains.scenarios import ScenarioDomain
+from cliova.simulation.domains.settlements import SettlementDomain
 from cliova.simulation.domains.world.fixtures import create_starter_world
 from cliova.simulation.engine import SimulationEngine
 from cliova.simulation.types import (
@@ -74,6 +75,7 @@ def create_simulation_engine() -> SimulationEngine:
         (
             PopulationDomain(),
             SeasonalSubsistenceAccessDomain(),
+            SettlementDomain(),
             DirectiveAwareEconomyDomain(capability_modifier=knowledge.capability_modifier),
             GovernanceDomain(),
             DirectiveDomain(),
