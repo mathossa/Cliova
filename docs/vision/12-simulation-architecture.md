@@ -22,6 +22,12 @@ De authoritative simulation core draait server-side in Python. Iedere module lee
 
 De precieze volgorde mag later veranderen; afhankelijkheden moeten expliciet zijn en met tests worden bewaakt.
 
+## Schaal en ruimtelijke representatie
+
+De simulatie moet uiteindelijk een wereldschaal ondersteunen met veel regio’s en samenlevingen, terwijl vroege testwerelden bewust klein mogen blijven. Regio’s beschrijven de fysieke wereld; samenlevingen, bevolkingsgroepen en politieke structuren zijn aparte entiteiten die over één of meerdere regio’s verspreid kunnen zijn. Een regio kan tegelijk door meerdere groepen worden bewoond of gebruikt.
+
+Schaalbaarheid komt vooral uit aggregatie: niet iedere inwoner, akker of kaartcel krijgt een zelfstandige agent. Fijnere geografische data kan onder regio’s bestaan voor generatie en kaartberekeningen, terwijl dure sociale en economische simulatie op geaggregeerde groepen, regio’s en netwerken draait. Zo blijft wereldschaal mogelijk zonder de simulatie tot een klein bordspel te reduceren.
+
 ## Herbruikbare software
 
 **Mesa** kan gebruikt worden voor betekenisvolle agents zoals staten, clans, facties, instituties en notable individuals. Miljoenen inwoners worden niet als agents gemodelleerd.
