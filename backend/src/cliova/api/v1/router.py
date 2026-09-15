@@ -41,7 +41,7 @@ RepositoryDependency = Annotated[WorldRepository, Depends(get_repository)]
 
 
 @router.post(
-    "/development/worlds",
+    "/dev/worlds",
     response_model=WorldSummary,
     status_code=status.HTTP_201_CREATED,
 )
@@ -209,7 +209,7 @@ def submit_directive(
 
 
 @router.post(
-    "/development/worlds/{world_id}/ticks",
+    "/dev/worlds/{world_id}/ticks",
     response_model=ManualTickResponse,
 )
 def advance_development_tick(
