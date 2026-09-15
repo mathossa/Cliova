@@ -146,12 +146,15 @@ def test_food_accounting_and_consumption_order_are_explicit_and_conservative() -
     accounted = balance.consumed + balance.reserves.spoilage_loss + balance.stockpile
     assert opening_supply == pytest.approx(accounted, abs=2e-6)
     assert balance.reserves.preserved <= opening_supply - balance.consumed + 1e-6
-    assert min(
-        balance.reserves.perishable,
-        balance.reserves.durable,
-        balance.deficit,
-        balance.stockpile,
-    ) >= 0.0
+    assert (
+        min(
+            balance.reserves.perishable,
+            balance.reserves.durable,
+            balance.deficit,
+            balance.stockpile,
+        )
+        >= 0.0
+    )
 
 
 def test_stronger_preservation_retains_more_food_across_ticks() -> None:
@@ -235,12 +238,8 @@ def test_preservation_capability_is_scoped_to_storage_not_food_methods() -> None
     for method in ("cultivation", "pastoralism", "foraging", "fishing"):
         assert knowledge.capability_modifier(improved, fertile.id, "food", method) == 1.0
 
-    baseline_tick = SimulationEngine(
-        (EconomyDomain(knowledge.capability_modifier),)
-    ).step(baseline)
-    improved_tick = SimulationEngine(
-        (EconomyDomain(knowledge.capability_modifier),)
-    ).step(improved)
+    baseline_tick = SimulationEngine((EconomyDomain(knowledge.capability_modifier),)).step(baseline)
+    improved_tick = SimulationEngine((EconomyDomain(knowledge.capability_modifier),)).step(improved)
     assert baseline_tick.world.economy is not None
     assert improved_tick.world.economy is not None
     baseline_food = baseline_tick.world.economy.region(fertile.id).resource("food")
