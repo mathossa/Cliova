@@ -443,7 +443,7 @@ class PostgresPersistence:
 
 
 def _encode_world(world: WorldState) -> dict[str, Any]:
-    return cast(dict[str, Any], world.model_dump(mode="json"))
+    return world.model_dump(mode="json")
 
 
 def _decode_world(payload: dict[str, Any]) -> WorldState:
@@ -459,7 +459,7 @@ def _decode_world(payload: dict[str, Any]) -> WorldState:
 
 
 def _encode_input(value: SimulationInput) -> dict[str, Any]:
-    return cast(dict[str, Any], value.model_dump(mode="json"))
+    return value.model_dump(mode="json")
 
 
 def _decode_input(payload: dict[str, Any]) -> SimulationInput:
@@ -467,7 +467,7 @@ def _decode_input(payload: dict[str, Any]) -> SimulationInput:
 
 
 def _encode_event(event: SimulationEvent) -> dict[str, Any]:
-    return cast(dict[str, Any], event.model_dump(mode="json"))
+    return event.model_dump(mode="json")
 
 
 def _decode_event(payload: dict[str, Any]) -> SimulationEvent:
