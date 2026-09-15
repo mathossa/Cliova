@@ -4,7 +4,7 @@ from cliova.simulation.domains.economy import (
     RESOURCE_KINDS,
     EconomyDomain,
     initialize_economy,
-    population_food_pressure_input,
+    population_food_pressure_inputs,
     resource_change_key,
 )
 from cliova.simulation.domains.population import PopulationDomain, initialize_population
@@ -134,9 +134,9 @@ def test_food_shortage_becomes_next_tick_population_pressure_without_direct_muta
         and any(change.key == "economy.food.shortage_severity" for change in event.changes)
     )
 
-    pressure = population_food_pressure_input(economy_tick.world, events=economy_tick.events)
-    assert pressure is not None
-    dry_pressure = next(change for change in pressure.changes if change.target == dry.id)
+    pressures = population_food_pressure_inputs(economy_tick.world, events=economy_tick.events)
+    dry_input = next(pressure for pressure in pressures if pressure.subjects == (dry.id,))
+    dry_pressure = next(change for change in dry_input.changes if change.target == dry.id)
     assert dry_pressure.source == "population"
     assert dry_pressure.key == "population.food_security"
     assert dry_pressure.delta == pytest.approx(-shortage)
@@ -144,7 +144,7 @@ def test_food_shortage_becomes_next_tick_population_pressure_without_direct_muta
 
     control = SimulationEngine((PopulationDomain(), EconomyDomain())).step(economy_tick.world)
     stressed = SimulationEngine((PopulationDomain(), EconomyDomain())).step(
-        economy_tick.world, inputs=(pressure,)
+        economy_tick.world, inputs=pressures
     )
     assert control.world.population is not None
     assert stressed.world.population is not None
@@ -159,7 +159,7 @@ def test_food_shortage_becomes_next_tick_population_pressure_without_direct_muta
         for event in stressed.events
         if event.source == "economy"
         and event.kind == "food-security-pressure"
-        and dry.id in event.subjects
+        and event.subjects == (dry.id,)
     )
     population_event = next(
         event
@@ -185,11 +185,11 @@ def test_recovery_clears_shortage_and_rebuilds_food_security_pressure() -> None:
     engine = SimulationEngine((PopulationDomain(), EconomyDomain()))
 
     shortage_tick = SimulationEngine((EconomyDomain(),)).step(world)
-    shortage_pressure = population_food_pressure_input(
+    shortage_pressures = population_food_pressure_inputs(
         shortage_tick.world, events=shortage_tick.events
     )
-    assert shortage_pressure is not None
-    stressed = engine.step(shortage_tick.world, inputs=(shortage_pressure,))
+    assert shortage_pressures
+    stressed = engine.step(shortage_tick.world, inputs=shortage_pressures)
     assert stressed.world.population is not None
     assert stressed.world.economy is not None
     assert stressed.world.population.region(dry.id).needs.food_security < 1.0
@@ -221,12 +221,16 @@ def test_recovery_clears_shortage_and_rebuilds_food_security_pressure() -> None:
         and dry.id in event.subjects
     )
 
-    recovery_pressure = population_food_pressure_input(recovered.world, events=recovered.events)
-    assert recovery_pressure is not None
-    dry_recovery = next(change for change in recovery_pressure.changes if change.target == dry.id)
+    recovery_pressures = population_food_pressure_inputs(recovered.world, events=recovered.events)
+    dry_recovery_input = next(
+        pressure for pressure in recovery_pressures if pressure.subjects == (dry.id,)
+    )
+    dry_recovery = next(
+        change for change in dry_recovery_input.changes if change.target == dry.id
+    )
     assert dry_recovery.cause_event_ids == (recovery_event.id,)
 
-    restored = engine.step(recovered.world, inputs=(recovery_pressure,))
+    restored = engine.step(recovered.world, inputs=recovery_pressures)
     assert restored.world.population is not None
     assert restored.world.population.region(dry.id).needs.food_security == pytest.approx(1.0)
 
