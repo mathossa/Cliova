@@ -185,7 +185,7 @@ def test_moderate_surplus_converges_instead_of_accumulating_without_bound() -> N
         stockpiles.append(current.stockpile)
 
     assert stockpiles[-1] < 3.0 * current.demand
-    assert stockpiles[-1] == pytest.approx(stockpiles[199], abs=1e-3)
+    assert stockpiles[-1] == pytest.approx(stockpiles[-51], abs=1e-3)
 
 
 def test_production_shock_exhausts_reserves_then_recovery_rebuilds_them() -> None:
