@@ -235,6 +235,37 @@ class FoodProductionMethodState(SimulationModel):
         return self
 
 
+class FoodReserveState(SimulationModel):
+    """Food reserve classes plus explicit last-tick storage accounting."""
+
+    perishable: NonNegativeFloat = 0.0
+    durable: NonNegativeFloat = 0.0
+    consumed_from_production: NonNegativeFloat = 0.0
+    consumed_from_perishable: NonNegativeFloat = 0.0
+    consumed_from_durable: NonNegativeFloat = 0.0
+    preserved: NonNegativeFloat = 0.0
+    perishable_spoilage: NonNegativeFloat = 0.0
+    durable_spoilage: NonNegativeFloat = 0.0
+    preservation_modifier: PositiveFloat = 1.0
+
+    @property
+    def total(self) -> float:
+        return round(self.perishable + self.durable, 6)
+
+    @property
+    def consumed(self) -> float:
+        return round(
+            self.consumed_from_production
+            + self.consumed_from_perishable
+            + self.consumed_from_durable,
+            6,
+        )
+
+    @property
+    def spoilage_loss(self) -> float:
+        return round(self.perishable_spoilage + self.durable_spoilage, 6)
+
+
 class ResourceEconomyState(SimulationModel):
     """One regional resource flow plus the reserve carried into future ticks."""
 
@@ -248,14 +279,21 @@ class ResourceEconomyState(SimulationModel):
     deficit: NonNegativeFloat = 0.0
     shortage_severity: UnitInterval = 0.0
     food_production: tuple[FoodProductionMethodState, ...] = ()
+    food_reserves: FoodReserveState | None = None
 
     @model_validator(mode="after")
-    def validate_food_production(self) -> "ResourceEconomyState":
-        if self.resource != "food" and self.food_production:
-            raise ValueError("food production methods belong only to the aggregate food resource")
+    def validate_food_state(self) -> "ResourceEconomyState":
+        if self.resource != "food" and (self.food_production or self.food_reserves is not None):
+            raise ValueError("food production and reserve state belong only to aggregate food")
         methods = [method.method for method in self.food_production]
         if len(methods) != len(set(methods)):
             raise ValueError("food production methods must be unique")
+        if self.food_reserves is not None:
+            tolerance = 1e-6
+            if abs(self.food_reserves.total - self.stockpile) > tolerance:
+                raise ValueError("aggregate food stockpile must equal perishable plus durable reserves")
+            if abs(self.food_reserves.consumed - self.consumed) > tolerance:
+                raise ValueError("food consumption must equal its explicit reserve draw accounting")
         return self
 
 
