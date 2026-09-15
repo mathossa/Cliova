@@ -192,9 +192,7 @@ def test_failed_simulation_keeps_state_and_queue_then_retry_succeeds(database_ur
         name = "failing"
         phase = TickPhase.WORLD_ENVIRONMENT
 
-        def step(
-            self, world: WorldState, context: TickContext, rng: RandomSource
-        ) -> DomainResult:
+        def step(self, world: WorldState, context: TickContext, rng: RandomSource) -> DomainResult:
             del world, context, rng
             raise RuntimeError("forced simulation failure")
 
