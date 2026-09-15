@@ -88,8 +88,8 @@ export function LiveStatusPanel({ moduleId, world }: { moduleId: ModuleId; world
 
   if (moduleId === "scenarios") {
     return (
-      <LivePanel eyebrow="API v1 · pressures" title="Active pressures">
-        {world.pressures.length === 0 ? <Empty text="No active pressures." /> : (
+      <LivePanel eyebrow="API v1 · tensions" title="Active tensions">
+        {world.pressures.length === 0 ? <Empty text="No active tensions." /> : (
           <ul className="live-list">
             {world.pressures.map((pressure) => (
               <li key={pressure.id} data-pressure-id={pressure.id}>
