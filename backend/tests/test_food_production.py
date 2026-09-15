@@ -1,7 +1,6 @@
 from math import isfinite
 
 import pytest
-
 from simulation_quality import HeadlessTrace, assert_core_invariants
 
 from cliova.simulation.domains.economy import (
@@ -57,7 +56,9 @@ def _profile_world(
             ResourcePotential(resource="timber", potential=0.4),
         ),
     )
-    world = world.model_copy(update={"geography": GeographyState(regions=(region,), connections=())})
+    world = world.model_copy(
+        update={"geography": GeographyState(regions=(region,), connections=())}
+    )
     return initialize_economy(initialize_population(world, total_per_region=total))
 
 
