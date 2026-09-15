@@ -103,9 +103,7 @@ def economy_learning_inputs(
                         ExperienceGain(
                             track="food",
                             amount=(
-                                round(outcome.production / denominator, 6)
-                                if denominator > 0
-                                else 0
+                                round(outcome.production / denominator, 6) if denominator > 0 else 0
                             ),
                             cause_event_ids=causes,
                         )
