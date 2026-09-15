@@ -177,9 +177,7 @@ def test_cultivation_capability_changes_only_cultivation_output() -> None:
     assert knowledge.capability_modifier(improved, region_id, "food", "fishing") == 1.0
 
     _, base_food = _food_after_tick(base)
-    _, improved_food = _food_after_tick(
-        improved, EconomyDomain(knowledge.capability_modifier)
-    )
+    _, improved_food = _food_after_tick(improved, EconomyDomain(knowledge.capability_modifier))
     base_methods = {method.method: method for method in base_food.food_production}
     improved_methods = {method.method: method for method in improved_food.food_production}
 
