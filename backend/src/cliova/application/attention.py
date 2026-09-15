@@ -177,8 +177,8 @@ class FoodShortageAttentionProducer:
                         earliest_effect_tick=event.time.tick + 1,
                         expires_at_tick=None,
                         default_behavior=(
-                            "No new directive is submitted; existing directives and standing policy "
-                            "continue unchanged."
+                            "No new directive is submitted; existing directives and "
+                            "standing policy continue unchanged."
                         ),
                         response_intent="strengthen_food_reserves",
                         status=DecisionOpportunityStatus.OPEN,
