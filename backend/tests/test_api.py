@@ -4,8 +4,8 @@ from uuid import UUID, uuid4
 import httpx2
 import pytest
 
-from cliova.application.persistence import QueuedSimulationInput, TickResolver
 from cliova.api.dependencies import get_repository
+from cliova.application.persistence import QueuedSimulationInput, TickResolver
 from cliova.infrastructure.persistence.postgres import TickConflictError, WorldNotFoundError
 from cliova.infrastructure.persistence.worlds import WorldAlreadyExistsError
 from cliova.main import create_app
@@ -31,7 +31,10 @@ class InMemoryWorldRepository:
         self.histories[world_id] = EventHistory()
 
     def list_worlds(self) -> tuple[WorldState, ...]:
-        return tuple(self.worlds[key] for key in sorted(self.worlds, key=lambda value: value.hex))
+        return tuple(
+            self.worlds[key]
+            for key in sorted(self.worlds, key=lambda value: value.hex)
+        )
 
     def load_world(self, world_id: UUID) -> WorldState:
         try:
@@ -96,7 +99,10 @@ async def client() -> AsyncIterator[httpx2.AsyncClient]:
     app = create_app()
     app.dependency_overrides[get_repository] = lambda: repository
     transport = httpx2.ASGITransport(app=app)
-    async with httpx2.AsyncClient(transport=transport, base_url="http://testserver") as value:
+    async with httpx2.AsyncClient(
+        transport=transport,
+        base_url="http://testserver",
+    ) as value:
         yield value
 
 
@@ -110,7 +116,9 @@ async def _create_world(client: httpx2.AsyncClient) -> dict[str, object]:
 
 
 @pytest.mark.anyio
-async def test_create_list_load_and_status_use_public_dtos(client: httpx2.AsyncClient) -> None:
+async def test_create_list_load_and_status_use_public_dtos(
+    client: httpx2.AsyncClient,
+) -> None:
     created = await _create_world(client)
     world_id = created["id"]
 
@@ -143,7 +151,9 @@ async def test_create_list_load_and_status_use_public_dtos(client: httpx2.AsyncC
 
 
 @pytest.mark.anyio
-async def test_directive_queue_tick_lifecycle_and_history(client: httpx2.AsyncClient) -> None:
+async def test_directive_queue_tick_lifecycle_and_history(
+    client: httpx2.AsyncClient,
+) -> None:
     created = await _create_world(client)
     world_id = created["id"]
     target = created["societies"][0]["subject"]
@@ -181,20 +191,28 @@ async def test_directive_queue_tick_lifecycle_and_history(client: httpx2.AsyncCl
     )
     assert history.status_code == 200
     events = history.json()["events"]
-    submitted_event = next(event for event in events if event["kind"] == "directive-submitted")
+    submitted_event = next(
+        event for event in events if event["kind"] == "directive-submitted"
+    )
     queued_event = next(event for event in events if event["kind"] == "directive-queued")
     assert queued_event["cause_event_ids"] == [submitted_event["id"]]
 
     filtered = await client.get(
         f"/api/v1/worlds/{world_id}/history",
-        params={"kind": "directive-queued", "subject_id": target["id"], "subject_kind": "society"},
+        params={
+            "kind": "directive-queued",
+            "subject_id": target["id"],
+            "subject_kind": "society",
+        },
     )
     assert filtered.status_code == 200
     assert [event["id"] for event in filtered.json()["events"]] == [queued_event["id"]]
 
 
 @pytest.mark.anyio
-async def test_missing_world_and_invalid_requests_are_normalized(client: httpx2.AsyncClient) -> None:
+async def test_missing_world_and_invalid_requests_are_normalized(
+    client: httpx2.AsyncClient,
+) -> None:
     missing_id = uuid4()
     missing = await client.get(f"/api/v1/worlds/{missing_id}")
     invalid_request = await client.post(
@@ -209,7 +227,9 @@ async def test_missing_world_and_invalid_requests_are_normalized(client: httpx2.
 
 
 @pytest.mark.anyio
-async def test_invalid_directive_and_history_query_are_normalized(client: httpx2.AsyncClient) -> None:
+async def test_invalid_directive_and_history_query_are_normalized(
+    client: httpx2.AsyncClient,
+) -> None:
     created = await _create_world(client)
     world_id = created["id"]
 
@@ -238,7 +258,9 @@ async def test_invalid_directive_and_history_query_are_normalized(client: httpx2
 
 
 @pytest.mark.anyio
-async def test_manual_tick_rejects_stale_expected_tick(client: httpx2.AsyncClient) -> None:
+async def test_manual_tick_rejects_stale_expected_tick(
+    client: httpx2.AsyncClient,
+) -> None:
     created = await _create_world(client)
     world_id = created["id"]
 
