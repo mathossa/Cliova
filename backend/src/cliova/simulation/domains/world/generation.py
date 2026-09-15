@@ -192,7 +192,9 @@ def _partition(
     return labels
 
 
-def _broad_biome(name: str, *, elevation: float, temperature: float, precipitation: float) -> BiomeKind:
+def _broad_biome(
+    name: str, *, elevation: float, temperature: float, precipitation: float
+) -> BiomeKind:
     normalized = name.lower()
     if elevation >= 0.72 and temperature <= 0.48:
         return "alpine"
@@ -200,7 +202,10 @@ def _broad_biome(name: str, *, elevation: float, temperature: float, precipitati
         return "boreal"
     if "desert" in normalized and precipitation < 0.45:
         return "arid"
-    if any(token in normalized for token in ("steppe", "scrub", "thorn", "dry")) and precipitation < 0.58:
+    if (
+        any(token in normalized for token in ("steppe", "scrub", "thorn", "dry"))
+        and precipitation < 0.58
+    ):
         return "semi_arid"
     if any(token in normalized for token in ("tropical", "subtropical")):
         return "tropical"
