@@ -85,13 +85,14 @@ def test_population_size_drives_resource_demand() -> None:
     large_food = large_result.world.economy.region(region.id).resource("food")
     assert large_food.demand == pytest.approx(2.0 * small_food.demand)
     assert large_food.production_capacity == pytest.approx(2.0 * small_food.production_capacity)
+    assert large_food.production < 2.0 * small_food.production
 
 
 def test_reserves_accumulate_then_deplete_before_shortage() -> None:
     world = _initialized_world(seed=67)
     assert world.geography is not None
     dry = world.geography.region("dry-basin")
-    world = _with_food_stockpile(world, dry.id, 1_600.0)
+    world = _with_food_stockpile(world, dry.id, 1_000.0)
     engine = SimulationEngine((EconomyDomain(),))
 
     first = engine.step(world)
@@ -104,7 +105,7 @@ def test_reserves_accumulate_then_deplete_before_shortage() -> None:
     first_food = first.world.economy.region(dry.id).resource("food")
     second_food = second.world.economy.region(dry.id).resource("food")
     third_food = third.world.economy.region(dry.id).resource("food")
-    assert first_food.stockpile < 1_600.0
+    assert first_food.stockpile < 1_000.0
     assert second_food.stockpile < first_food.stockpile
     assert first_food.shortage_severity == 0.0
     assert second_food.shortage_severity == 0.0
@@ -237,7 +238,7 @@ def test_shortage_event_keeps_causal_reserve_loss_chain() -> None:
     world = _initialized_world(seed=79)
     assert world.geography is not None
     dry = world.geography.region("dry-basin")
-    world = _with_food_stockpile(world, dry.id, 1_600.0)
+    world = _with_food_stockpile(world, dry.id, 1_000.0)
     first = SimulationEngine((EconomyDomain(),)).step(world)
     assert first.world.economy is not None
     assert first.world.economy.region(dry.id).resource("food").shortage_severity == 0.0
@@ -251,7 +252,7 @@ def test_shortage_event_keeps_causal_reserve_loss_chain() -> None:
             SimulationChange(
                 source="economy",
                 key=resource_change_key("food", "stockpile"),
-                delta=-700.0,
+                delta=-500.0,
                 reason="food reserves were lost",
                 target=dry.id,
             ),
