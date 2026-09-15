@@ -242,6 +242,16 @@
 }
 .leaflet-control-attribution a { color: #9eb9c8 !important; }
 
+/* Leaflet's dynamically loaded stylesheet otherwise wins with its default #ddd canvas. */
+.strategic-map-canvas.leaflet-container {
+  background: radial-gradient(circle at 50% 45%, #173b48 0%, #102833 72%, #0b1b23 100%) !important;
+}
+
+.strategic-map-canvas .leaflet-image-layer {
+  image-rendering: auto;
+  filter: saturate(.94) contrast(1.04) brightness(.97);
+}
+
 @media (min-width: 1101px) {
   .strategic-map-workspace,
   .strategic-map-stage,
