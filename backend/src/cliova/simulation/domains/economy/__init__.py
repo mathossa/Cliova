@@ -3,7 +3,7 @@
 from cliova.simulation.domains.economy.domain import (
     RESOURCE_KINDS,
     EconomyDomain,
-    population_food_pressure_input,
+    population_food_pressure_inputs,
     resource_change_key,
 )
 from cliova.simulation.domains.economy.initialization import initialize_economy
@@ -12,6 +12,6 @@ __all__ = [
     "RESOURCE_KINDS",
     "EconomyDomain",
     "initialize_economy",
-    "population_food_pressure_input",
+    "population_food_pressure_inputs",
     "resource_change_key",
 ]
