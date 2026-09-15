@@ -60,7 +60,9 @@ def one_region_world(
             ResourcePotential(resource="timber", potential=0.5),
         ),
     )
-    world = world.model_copy(update={"geography": GeographyState(regions=(region,), connections=())})
+    world = world.model_copy(
+        update={"geography": GeographyState(regions=(region,), connections=())}
+    )
     world = initialize_economy(initialize_population(world))
 
     subject = entity_id(world.id, "society", "grain-council")
@@ -114,7 +116,9 @@ def set_food_conditions(
     return world.model_copy(
         update={
             "economy": world.economy.model_copy(update={"regions": tuple(economy_regions)}),
-            "population": world.population.model_copy(update={"regions": tuple(population_regions)}),
+            "population": world.population.model_copy(
+                update={"regions": tuple(population_regions)}
+            ),
         }
     )
 
