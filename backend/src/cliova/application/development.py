@@ -31,17 +31,19 @@ def create_development_world(
 
     Existing callers keep the fast hand-authored fixture by default. The Command Center can
     explicitly request #59 generation so strategic-map development uses real persisted geometry.
+    Generated worlds begin inhabited only in the society's deterministic core region rather than
+    assigning population to every physical region, including ocean regions.
     """
     base = (
         WorldState.create(seed=seed, world_key=world_key)
         if generated_geography
         else create_starter_world(seed=seed, world_key=world_key)
     )
-    world = initialize_economy(initialize_population(base))
-    assert world.geography is not None
+    assert base.geography is not None
+
     if generated_geography:
         core_region = max(
-            world.geography.regions,
+            base.geography.regions,
             key=lambda region: (
                 region.surface != "ocean",
                 region.habitability,
@@ -51,8 +53,10 @@ def create_development_world(
             ),
         )
         region_id = core_region.id
+        world = initialize_economy(initialize_population(base, region_ids=(region_id,)))
     else:
-        region_id = world.geography.region("fertile-lowlands").id
+        region_id = base.geography.region("fertile-lowlands").id
+        world = initialize_economy(initialize_population(base))
 
     society_id = entity_id(world.id, "society", "river-council")
     governance = GovernanceState(
