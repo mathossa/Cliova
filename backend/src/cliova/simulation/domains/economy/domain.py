@@ -19,6 +19,7 @@ from cliova.simulation.types import (
     EventProposal,
     FoodProductionMethod,
     FoodProductionMethodState,
+    GeographyState,
     RegionalPopulationState,
     RegionState,
     ResourceEconomyState,
@@ -53,6 +54,18 @@ class FoodProductionRule:
     output_per_worker: float
     sustainable_yield_scale: float
     allocation_weight: float = 1.0
+
+
+@dataclass(frozen=True, slots=True)
+class FoodMethodOpportunity:
+    """Access-adjusted opportunity while preserving #48's production/yield calculation."""
+
+    regional_potential: float
+    external_potential: float = 0.0
+
+    @property
+    def total_potential(self) -> float:
+        return self.regional_potential + self.external_potential
 
 
 RESOURCE_RULES: dict[ResourceKind, ResourceRule] = {
@@ -369,21 +382,24 @@ def _calculate_food_outcome(
     capability_modifier: CapabilityModifier,
 ) -> ResourceOutcome:
     available_labour = _quantity(population.total * LABOUR_SHARE)
-    allocations = _allocate_food_labour(region, available_labour)
+    opportunities = _food_method_opportunities(world, region_id, region)
+    allocations = _allocate_food_labour(opportunities, available_labour)
     method_states: list[FoodProductionMethodState] = []
 
-    for rule, allocated_labour in zip(FOOD_PRODUCTION_RULES, allocations, strict=True):
+    for rule, opportunity, allocated_labour in zip(
+        FOOD_PRODUCTION_RULES, opportunities, allocations, strict=True
+    ):
         modifier = capability_modifier(world, region_id, "food", rule.method)
         if modifier <= 0.0:
             raise ValueError("capability modifier must be positive")
-        potential = region.resource_potential(rule.potential_key)
         labour_limited = _quantity(allocated_labour * rule.output_per_worker * modifier)
-        sustainable_limit = _quantity(potential * rule.sustainable_yield_scale)
+        sustainable_limit = _quantity(opportunity.total_potential * rule.sustainable_yield_scale)
         output = _quantity(min(labour_limited, sustainable_limit))
         method_states.append(
             FoodProductionMethodState(
                 method=rule.method,
-                regional_potential=potential,
+                regional_potential=opportunity.regional_potential,
+                external_potential=opportunity.external_potential,
                 allocated_labour=allocated_labour,
                 capability_modifier=modifier,
                 labour_limited_output=labour_limited,
@@ -404,10 +420,76 @@ def _calculate_food_outcome(
     )
 
 
-def _allocate_food_labour(region: RegionState, available_labour: float) -> tuple[float, ...]:
+def _food_method_opportunities(
+    world: WorldState,
+    region_id: EntityId,
+    region: RegionState,
+) -> tuple[FoodMethodOpportunity, ...]:
+    opportunities: list[FoodMethodOpportunity] = []
+    for rule in FOOD_PRODUCTION_RULES:
+        local = region.resource_potential(rule.potential_key)
+        external = 0.0
+        if rule.method == "pastoralism":
+            reserved = _reserved_external_share(world, region_id, rule.method)
+            local = _quantity(local * (1.0 - reserved))
+            relationship = next(
+                (
+                    state
+                    for state in world.society_regions
+                    if state.core_region_id == region_id
+                ),
+                None,
+            )
+            if relationship is not None:
+                for access in relationship.temporary_access:
+                    if access.production_method != rule.method:
+                        continue
+                    if not _directly_adjacent(world, region_id, access.region_id):
+                        raise ValueError("external food opportunity must be directly adjacent")
+                    source = _region_by_id(world, access.region_id)
+                    external += source.resource_potential(rule.potential_key) * access.access_share
+        opportunities.append(
+            FoodMethodOpportunity(
+                regional_potential=_quantity(local),
+                external_potential=_quantity(external),
+            )
+        )
+    return tuple(opportunities)
+
+
+def _reserved_external_share(
+    world: WorldState,
+    source_region_id: EntityId,
+    method: FoodProductionMethod,
+) -> float:
+    reserved = sum(
+        access.access_share
+        for relationship in world.society_regions
+        for access in relationship.temporary_access
+        if access.region_id == source_region_id and access.production_method == method
+    )
+    if reserved > 1.0 + 1e-6:
+        raise ValueError("temporary subsistence access exceeds source regional opportunity")
+    return min(1.0, _quantity(reserved))
+
+
+def _directly_adjacent(world: WorldState, a: EntityId, b: EntityId) -> bool:
+    geography: GeographyState | None = world.geography
+    if geography is None:
+        return False
+    return any(
+        (connection.a == a and connection.b == b)
+        or (connection.a == b and connection.b == a)
+        for connection in geography.connections
+    )
+
+
+def _allocate_food_labour(
+    opportunities: tuple[FoodMethodOpportunity, ...], available_labour: float
+) -> tuple[float, ...]:
     weights = tuple(
-        region.resource_potential(rule.potential_key) * rule.allocation_weight
-        for rule in FOOD_PRODUCTION_RULES
+        opportunity.total_potential * rule.allocation_weight
+        for rule, opportunity in zip(FOOD_PRODUCTION_RULES, opportunities, strict=True)
     )
     total_weight = sum(weights)
     if available_labour <= 0.0 or total_weight <= 0.0:
@@ -539,6 +621,7 @@ def _food_production_attributes(
         prefix = f"food_method.{state.method}"
         for field in (
             "regional_potential",
+            "external_potential",
             "allocated_labour",
             "capability_modifier",
             "labour_limited_output",
@@ -573,6 +656,7 @@ def _food_production_from_attributes(
             FoodProductionMethodState(
                 method=method,
                 regional_potential=float(values[f"{prefix}.regional_potential"]),
+                external_potential=float(values.get(f"{prefix}.external_potential", 0.0)),
                 allocated_labour=float(values[f"{prefix}.allocated_labour"]),
                 capability_modifier=float(values[f"{prefix}.capability_modifier"]),
                 labour_limited_output=float(values[f"{prefix}.labour_limited_output"]),
