@@ -7,6 +7,7 @@ from uuid import NAMESPACE_URL, UUID, uuid5
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 NonNegativeInt = Annotated[int, Field(strict=True, ge=0)]
+PositiveInt = Annotated[int, Field(strict=True, gt=0)]
 NonNegativeFloat = Annotated[float, Field(ge=0.0)]
 NonEmptyString = Annotated[str, Field(strict=True, min_length=1)]
 UnitInterval = Annotated[float, Field(ge=0.0, le=1.0)]
@@ -15,6 +16,7 @@ PositiveUnitInterval = Annotated[float, Field(gt=0.0, le=1.0)]
 EntityKind = Literal["world", "region", "society", "polity", "individual"]
 TerrainKind = Literal["plain", "plateau", "basin", "highland", "forest", "wetland", "coast"]
 BiomeKind = Literal["temperate", "semi_arid", "arid", "boreal", "tropical", "alpine"]
+SurfaceKind = Literal["land", "mixed", "ocean"]
 ResourceKind = Literal["food", "timber", "stone", "metal_ore"]
 FoodProductionMethod = Literal["cultivation", "pastoralism", "foraging", "fishing"]
 DirectiveIntent = Literal["strengthen_food_reserves"]
@@ -84,6 +86,83 @@ class WorldMetadata(SimulationModel):
         return value
 
 
+class GenerationParameter(SimulationModel):
+    """One persisted physical-generation input needed for diagnosis/reproduction."""
+
+    key: NonEmptyString
+    value: ChangeAttributeValue
+
+
+class PhysicalGenerationMetadata(SimulationModel):
+    """Versioned provenance/configuration for a generated physical geography snapshot."""
+
+    generator: Literal["worldengine"]
+    adapter_version: NonEmptyString
+    upstream_version: NonEmptyString
+    upstream_revision: NonEmptyString
+    partition_version: NonEmptyString
+    world_seed: Annotated[int, Field(strict=True)]
+    worldengine_seed: NonNegativeInt
+    schema_version: Literal[1]
+    simulation_version: Literal[1]
+    parameters: tuple[GenerationParameter, ...] = ()
+
+    @model_validator(mode="after")
+    def validate_parameters(self) -> "PhysicalGenerationMetadata":
+        keys = [parameter.key for parameter in self.parameters]
+        if len(keys) != len(set(keys)):
+            raise ValueError("physical generation parameter keys must be unique")
+        return self
+
+
+class RasterRun(SimulationModel):
+    """Inclusive/exclusive horizontal cell run in the stable presentation coordinate space."""
+
+    y: NonNegativeInt
+    x_start: NonNegativeInt
+    x_stop: PositiveInt
+
+    @model_validator(mode="after")
+    def validate_extent(self) -> "RasterRun":
+        if self.x_stop <= self.x_start:
+            raise ValueError("raster run x_stop must be greater than x_start")
+        return self
+
+
+class RegionPresentationGeometry(SimulationModel):
+    """Derived compact region boundary/centroid data for later strategic-map rendering."""
+
+    region_id: EntityId
+    centroid_x: NonNegativeFloat
+    centroid_y: NonNegativeFloat
+    runs: tuple[RasterRun, ...]
+
+    @model_validator(mode="after")
+    def validate_region(self) -> "RegionPresentationGeometry":
+        if self.region_id.kind != "region":
+            raise ValueError("presentation geometry must reference a region")
+        return self
+
+
+class GeographyPresentationState(SimulationModel):
+    """Derived raster geometry independent of any browser/rendering implementation."""
+
+    width: PositiveInt
+    height: PositiveInt
+    land_runs: tuple[RasterRun, ...] = ()
+    regions: tuple[RegionPresentationGeometry, ...] = ()
+
+    @model_validator(mode="after")
+    def validate_geometry(self) -> "GeographyPresentationState":
+        for run in (*self.land_runs, *(run for region in self.regions for run in region.runs)):
+            if run.y >= self.height or run.x_stop > self.width:
+                raise ValueError("presentation raster run must fit within world extent")
+        region_ids = [region.region_id for region in self.regions]
+        if len(region_ids) != len(set(region_ids)):
+            raise ValueError("presentation region IDs must be unique")
+        return self
+
+
 class ResourcePotential(SimulationModel):
     """A physical resource opportunity, not current extraction or production."""
 
@@ -102,6 +181,13 @@ class RegionState(SimulationModel):
     water_access: UnitInterval
     climate_pressure: UnitInterval
     resources: tuple[ResourcePotential, ...] = ()
+    surface: SurfaceKind = "land"
+    land_fraction: UnitInterval = 1.0
+    coast_fraction: UnitInterval = 0.0
+    mean_elevation: UnitInterval = 0.0
+    mean_temperature: UnitInterval = 0.5
+    mean_precipitation: UnitInterval = 0.5
+    topographic_constraint: UnitInterval = 0.0
 
     @model_validator(mode="after")
     def validate_region(self) -> "RegionState":
@@ -141,6 +227,8 @@ class GeographyState(SimulationModel):
 
     regions: tuple[RegionState, ...]
     connections: tuple[RegionConnection, ...]
+    generation: PhysicalGenerationMetadata | None = None
+    presentation: GeographyPresentationState | None = None
 
     @model_validator(mode="after")
     def validate_geography(self) -> "GeographyState":
@@ -160,6 +248,10 @@ class GeographyState(SimulationModel):
             if edge in seen_connections:
                 raise ValueError("duplicate undirected region connection")
             seen_connections.add(edge)
+        if self.presentation is not None:
+            presentation_ids = {region.region_id for region in self.presentation.regions}
+            if presentation_ids != known_ids:
+                raise ValueError("presentation geometry must contain every geography region exactly once")
         return self
 
     def region(self, key: str) -> RegionState:
