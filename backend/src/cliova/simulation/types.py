@@ -257,6 +257,37 @@ class EconomyDomainState(SimulationModel):
         raise KeyError(region_id)
 
 
+class InstitutionProfile(SimulationModel):
+    """Structural parameters, without political labels or a progression ladder."""
+
+    key: NonEmptyString
+    coordination_efficiency: UnitInterval
+    stress_resilience: UnitInterval
+    adaptation_rate: UnitInterval
+
+
+class GovernanceState(SimulationModel):
+    """One playable society/polity and its current presence, not territorial ownership.
+
+    All starting political values are explicitly supplied by the caller.
+    """
+
+    subject_id: EntityId
+    region_id: EntityId
+    institution: InstitutionProfile
+    legitimacy: UnitInterval
+    execution_capacity: UnitInterval
+    internal_resistance: UnitInterval
+
+    @model_validator(mode="after")
+    def validate_identity(self) -> "GovernanceState":
+        if self.subject_id.kind not in {"society", "polity"}:
+            raise ValueError("governance subject must identify a society or polity")
+        if self.region_id.kind != "region":
+            raise ValueError("governance presence must identify a region")
+        return self
+
+
 class CapabilityProgress(SimulationModel):
     capability_key: NonEmptyString
     proficiency: UnitInterval = 0.0
@@ -324,6 +355,7 @@ class WorldState(SimulationModel):
     population: PopulationDomainState | None = None
     economy: EconomyDomainState | None = None
     knowledge: KnowledgeDomainState | None = None
+    governance: tuple[GovernanceState, ...] = ()
 
     @model_validator(mode="after")
     def check_world_id(self) -> "WorldState":
@@ -352,6 +384,25 @@ class WorldState(SimulationModel):
                 for region in society.region_ids
             ):
                 raise ValueError("knowledge participation must reference world geography")
+        return self
+
+    @model_validator(mode="after")
+    def validate_governance(self) -> "WorldState":
+        subjects = [state.subject_id for state in self.governance]
+        if len(subjects) != len(set(subjects)):
+            raise ValueError("governance subject IDs must be unique")
+        for state in self.governance:
+            if self.geography is None or state.region_id not in {
+                region.id for region in self.geography.regions
+            }:
+                raise ValueError("governance presence must reference world geography")
+            if self.population is None or self.economy is None:
+                raise ValueError("governance requires population and economy pressure inputs")
+            try:
+                self.population.region(state.region_id)
+                self.economy.region(state.region_id).resource("food")
+            except KeyError as exc:
+                raise ValueError("governance region requires population and food economy") from exc
         return self
 
     @property

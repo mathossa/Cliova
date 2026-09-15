@@ -8,6 +8,14 @@ De economie van Cliova moet vaste onderliggende regels hebben, maar geen vooraf 
 
 De kern simuleert productie, consumptie, arbeid, voorraden, transport, schaarste, handel en investeringen. Goederen hebben een oorsprong, hoeveelheid, locatie en eventueel houdbaarheid. Productie vereist arbeid, kennis, middelen en infrastructuur. Transport kost tijd en capaciteit. Schaarste moet gevolgen hebben, ongeacht welk economisch systeem een samenleving gebruikt.
 
+## Grondstoffen veranderen van betekenis
+
+De fysieke wereld bevat natuurlijke mogelijkheden die niet pas verschijnen wanneer een nieuw tijdperk begint. Een mineraal, vruchtbare bodem, bos of energiebron kan al aanwezig zijn terwijl een samenleving die nog niet kent, niet kan winnen of niet waardevol vindt. Kennis, infrastructuur, arbeid en vraag bepalen welke natuurlijke mogelijkheden economisch bruikbaar worden.
+
+De simulatie maakt daarom waar nodig onderscheid tussen **natuurlijk potentieel**, **gewonnen grondstoffen** en **verwerkte goederen**. Een beperkte eerste resource-set mag deze lagen samenvoegen om de kernlus te bewijzen, maar mag niet de uiteindelijke historische variatie vastleggen. Nieuwe productieketens en economische specialisaties moeten uit ontdekkingen en capaciteiten ontstaan, niet uit een vaste age-unlock-lijst.
+
+Geografie kan zo mede bepalen hoe samenlevingen zich vormen: overvloedige landbouw, visserij, graasgrond, hout, ertsen of handelsroutes beïnvloeden mobiliteit, nederzettingen, specialisatie en instituties zonder één vooraf gekozen maatschappijtype af te dwingen.
+
 ## Instituties bepalen verdeling
 
 De vrijheid zit in regels zoals:
