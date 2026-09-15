@@ -1,4 +1,5 @@
 from collections.abc import AsyncIterator
+from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 import httpx2
@@ -6,6 +7,7 @@ import pytest
 
 from cliova.api.dependencies import get_repository
 from cliova.application.persistence import QueuedSimulationInput, TickResolver
+from cliova.application.scheduling import TickRunClaim, TickRunTrigger
 from cliova.infrastructure.persistence.postgres import TickConflictError, WorldNotFoundError
 from cliova.infrastructure.persistence.worlds import WorldAlreadyExistsError
 from cliova.main import create_app
@@ -84,6 +86,40 @@ class InMemoryWorldRepository:
         current = self.histories[world_id]
         self.histories[world_id] = EventHistory((*current.events, *result.events))
         return result
+
+    def claim_manual_tick(
+        self,
+        world_id: UUID,
+        *,
+        expected_tick: int,
+        now: datetime,
+    ) -> TickRunClaim:
+        world = self.load_world(world_id)
+        if world.time.tick != expected_tick:
+            raise TickConflictError("stale tick")
+        return TickRunClaim(
+            run_id=uuid4(),
+            world_id=world_id,
+            target_tick=expected_tick + 1,
+            trigger=TickRunTrigger.MANUAL,
+            claim_token=uuid4(),
+            started_at=now.astimezone(UTC),
+            attempt_count=1,
+        )
+
+    def execute_claimed_tick(
+        self,
+        claim: TickRunClaim,
+        *,
+        resolver: TickResolver,
+        next_eligible_at: datetime,
+    ) -> TickResult:
+        del next_eligible_at
+        return self.execute_tick(
+            claim.world_id,
+            expected_tick=claim.target_tick - 1,
+            resolver=resolver,
+        )
 
     def load_history(self, world_id: UUID) -> EventHistory:
         self.load_world(world_id)

@@ -2,11 +2,11 @@
 
 from typing import Protocol
 
-from cliova.application.persistence import PersistenceRepository
+from cliova.application.scheduling import SchedulingRepository
 from cliova.simulation.types import WorldState
 
 
-class WorldRepository(PersistenceRepository, Protocol):
+class WorldRepository(SchedulingRepository, Protocol):
     """Persistence boundary used by the HTTP world lifecycle."""
 
     def list_worlds(self) -> tuple[WorldState, ...]: ...
