@@ -46,6 +46,26 @@ For each candidate record:
 - **Attribution/NOTICE:** none for Cliova under this decision because no scikit-image code is distributed or copied.
 - **Rationale:** watershed is a mature segmentation algorithm, but adding scikit-image/SciPy solely for aggregate world partitioning is unnecessary while the already-present NetworkX graph-Voronoi implementation meets the deterministic partition requirement with a smaller dependency surface.
 
+### `fgmacedo/python-statemachine`
+
+- **Upstream:** `fgmacedo/python-statemachine`; considered for issue #64's generic attention/decision lifecycle.
+- **Revision:** release `v3.2.1`, commit `dc644e3` (inspected on 2026-09-15).
+- **License/SPDX:** `MIT`; verified from the upstream repository and release metadata.
+- **Classification:** `rejected` for this subsystem.
+- **Reuse mode:** `rejected`; no dependency or source reuse.
+- **Attribution/NOTICE:** none for Cliova under this decision because no source or dependency is incorporated.
+- **Rationale:** mature and actively maintained, but its statechart/SCXML, callbacks and event-processing machinery is disproportionate to #64's intentionally tiny persisted lifecycle (`open`/`responded`/`expired`). It would not replace Cliova-specific PostgreSQL transaction boundaries or the #9/#17 future-input path, so existing immutable application models plus explicit SQL transitions are smaller and clearer.
+
+### `oaxley/pyfsm`
+
+- **Upstream:** `oaxley/pyfsm`; considered as a lightweight finite-state-machine primitive for issue #64.
+- **Revision:** repository `main` documentation inspected on 2026-09-15.
+- **License/SPDX:** `Apache-2.0`; verified from the upstream repository license/documentation.
+- **Classification:** `rejected` for this subsystem.
+- **Reuse mode:** `rejected`; no dependency or source reuse.
+- **Attribution/NOTICE:** none for Cliova under this decision because no source or dependency is incorporated.
+- **Rationale:** the library is small, but its generic FSM state/event/transition abstraction would still add a second lifecycle framework without solving deterministic tick eligibility, response queue locking, persistence or event references. Three explicit statuses are simpler to validate directly in Cliova's existing repository/application patterns.
+
 ### `tan-zhuo/genesis`
 
 - **Upstream:** `tan-zhuo/genesis`; potentially relevant to simulation concepts, phase ordering and observable game behavior.
