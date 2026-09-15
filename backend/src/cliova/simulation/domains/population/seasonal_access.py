@@ -221,7 +221,9 @@ def _desired_access(
     )
 
 
-def _direct_neighbors(world: WorldState, core_region_id: EntityId) -> tuple[tuple[EntityId, float], ...]:
+def _direct_neighbors(
+    world: WorldState, core_region_id: EntityId
+) -> tuple[tuple[EntityId, float], ...]:
     assert world.geography is not None
     neighbors: list[tuple[EntityId, float]] = []
     for connection in world.geography.connections:
@@ -313,7 +315,10 @@ def _validate_access(
 ) -> None:
     if len(desired) > 1:
         raise ValueError("initial seasonal access model allows one external region per society")
-    neighbor_ids = {region_id for region_id, _ in _direct_neighbors(world, relationship.core_region_id)}
+    neighbor_ids = {
+        region_id
+        for region_id, _ in _direct_neighbors(world, relationship.core_region_id)
+    }
     for access in desired:
         if access.production_method != "pastoralism":
             raise ValueError("initial seasonal access supports pastoralism only")
@@ -329,7 +334,11 @@ def _access_reason(
     desired: tuple[SeasonalSubsistenceAccessState, ...],
 ) -> str:
     assert world.geography is not None
-    core = next(region for region in world.geography.regions if region.id == relationship.core_region_id)
+    core = next(
+        region
+        for region in world.geography.regions
+        if region.id == relationship.core_region_id
+    )
     if not desired:
         return f"{relationship.society_id.value} ended temporary pastoral access from {core.key}."
     access = desired[0]
