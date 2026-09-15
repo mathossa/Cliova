@@ -16,7 +16,7 @@ from cliova.api.v1.models import (
     TemporaryPresence,
     WorldMapResponse,
 )
-from cliova.simulation.types import RasterRun, RegionPresentationGeometry, WorldState
+from cliova.simulation.types import EntityId, RasterRun, RegionPresentationGeometry, WorldState
 
 MAP_RENDER_VERSION = "strategic-svg-v1"
 MAP_COORDINATE_SYSTEM = "cliova-grid-bottom-left-v1"
@@ -54,7 +54,7 @@ def _centroid(
     )
 
 
-def _population(world: WorldState, region_id: object) -> int | None:
+def _population(world: WorldState, region_id: EntityId) -> int | None:
     if world.population is None:
         return None
     for state in world.population.regions:
@@ -63,7 +63,7 @@ def _population(world: WorldState, region_id: object) -> int | None:
     return None
 
 
-def _food_shortage(world: WorldState, region_id: object) -> float | None:
+def _food_shortage(world: WorldState, region_id: EntityId) -> float | None:
     if world.economy is None:
         return None
     for state in world.economy.regions:
@@ -90,7 +90,7 @@ def world_map_projection(world: WorldState) -> WorldMapResponse:
         )
 
     presentation_by_region = {geometry.region_id: geometry for geometry in presentation.regions}
-    active_pressure_by_region: dict[object, float] = {}
+    active_pressure_by_region: dict[EntityId, float] = {}
     for pressure in world.pressures:
         if pressure.milestone == "resolved":
             continue
@@ -99,8 +99,8 @@ def world_map_projection(world: WorldState) -> WorldMapResponse:
             active_pressure_by_region.get(pressure.region_id, 0.0),
         )
 
-    core_by_region: dict[object, list[object]] = {}
-    temporary_by_region: dict[object, list[TemporaryPresence]] = {}
+    core_by_region: dict[EntityId, list[EntityId]] = {}
+    temporary_by_region: dict[EntityId, list[TemporaryPresence]] = {}
     for relationship in world.society_regions:
         core_by_region.setdefault(relationship.core_region_id, []).append(relationship.society_id)
         for access in relationship.temporary_access:
@@ -144,7 +144,7 @@ def world_map_projection(world: WorldState) -> WorldMapResponse:
             )
         )
 
-    structure_counts: dict[object, int] = {}
+    structure_counts: dict[EntityId, int] = {}
     for structure in world.settlements.structures:
         structure_counts[structure.settlement_id] = structure_counts.get(structure.settlement_id, 0) + 1
 
