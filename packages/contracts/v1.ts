@@ -13,6 +13,8 @@ export type DirectiveStatus =
   | "failed"
   | "completed";
 export type PressureMilestone = "emerging" | "elevated" | "crisis" | "recovering" | "resolved";
+export type AttentionPriority = "informational" | "important" | "urgent";
+export type DecisionOpportunityStatus = "open" | "responded" | "expired";
 export type SettlementArchetype = "permanent" | "seasonal_camp" | "temporary_camp";
 export type SettlementStatus = "active" | "dormant" | "abandoned" | "destroyed";
 export type StructureStatus = "active" | "damaged" | "destroyed";
@@ -208,6 +210,7 @@ export type DirectiveSubmissionRequest = {
   target: DirectiveTarget;
   intent?: DirectiveIntent;
   priority?: DirectivePriority;
+  decision_opportunity_id?: string;
 };
 
 export type QueuedDirective = {
@@ -235,6 +238,47 @@ export type DirectiveListResponse = {
   world_id: string;
   pending: QueuedDirective[];
   directives: AuthoritativeDirective[];
+};
+
+export type AttentionItem = {
+  id: string;
+  target: EntityRef | null;
+  created_tick: number;
+  created_year: number;
+  category: string;
+  priority: AttentionPriority;
+  context: string;
+  related_event_ids: string[];
+  related_subjects: EntityRef[];
+};
+
+export type AttentionItemsResponse = {
+  world_id: string;
+  items: AttentionItem[];
+};
+
+export type DecisionOpportunity = {
+  id: string;
+  target: DirectiveTarget;
+  created_tick: number;
+  created_year: number;
+  category: string;
+  context: string;
+  related_event_ids: string[];
+  related_subjects: EntityRef[];
+  earliest_effect_tick: number;
+  expires_at_tick: number | null;
+  default_behavior: string;
+  response_intent: DirectiveIntent;
+  status: DecisionOpportunityStatus;
+  response_queue_id: number | null;
+  response_submitted_tick: number | null;
+  response_directive_id: string | null;
+};
+
+export type DecisionOpportunityListResponse = {
+  world_id: string;
+  opportunities: DecisionOpportunity[];
 };
 
 export type ManualTickRequest = {
