@@ -19,6 +19,7 @@ from cliova.simulation.types import (
     GeographyState,
     RegionState,
     ResourcePotential,
+    SimulationInput,
     SimulationRunResult,
     SocietyKnowledgeState,
     TickResult,
@@ -231,7 +232,7 @@ def test_diversified_food_replay_is_deterministic() -> None:
 def _run_with_food_boundary(initial: WorldState, years: int) -> HeadlessTrace:
     engine = SimulationEngine((PopulationDomain(), EconomyDomain()))
     world = initial
-    pending = ()
+    pending: tuple[SimulationInput, ...] = ()
     ticks: list[TickResult] = []
     for _ in range(years):
         tick = engine.step(world, inputs=pending)
@@ -255,6 +256,7 @@ def test_diversified_food_long_run_invariants(years: int) -> None:
     trace = _run_with_food_boundary(initial, years)
     assert_core_invariants(trace)
 
+    assert trace.initial_world.geography is not None
     geography_ids = {region.id for region in trace.initial_world.geography.regions}
     for tick in trace.run.ticks:
         assert tick.world.population is not None
