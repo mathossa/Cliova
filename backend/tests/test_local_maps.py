@@ -70,9 +70,7 @@ def test_local_map_projection_is_stable_and_uses_distinct_renderer_paths() -> No
     permanent = next(
         item for item in world.settlements.settlements if item.archetype == "permanent"
     )
-    camp = next(
-        item for item in world.settlements.settlements if item.archetype != "permanent"
-    )
+    camp = next(item for item in world.settlements.settlements if item.archetype != "permanent")
 
     permanent_first = local_map_request(world, permanent.id.value)
     permanent_second = local_map_request(world, permanent.id.value)
