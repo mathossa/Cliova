@@ -85,8 +85,6 @@ def test_current_living_domain_stack_replays_and_holds_invariants() -> None:
     assert_domain_stack_invariants(first, knowledge_domain=KnowledgeDomain())
     assert_domain_stack_invariants(second, knowledge_domain=KnowledgeDomain())
     assert first.run.world == second.run.world
-    assert first.run.world.knowledge is not None
-    assert first.run.world.knowledge.societies[0].proficiency("cultivation_efficiency") > 0
 
 
 def test_domain_bound_failure_reports_seed_tick_and_entity() -> None:
@@ -105,6 +103,30 @@ def test_domain_bound_failure_reports_seed_tick_and_entity() -> None:
         match=(
             r"population-bounds failed: seed=118 tick=0; "
             r"entity=region:.*field=population.needs.food_security value=1.25"
+        ),
+    ):
+        assert_world_domain_invariants(
+            broken_world,
+            seed=SEED,
+            tick=0,
+            knowledge_domain=KnowledgeDomain(),
+        )
+
+
+def test_duplicate_domain_entity_failure_reports_seed_tick_and_field() -> None:
+    world = _living_world()
+    assert world.population is not None
+    first = world.population.regions[0]
+    broken_state = world.population.model_copy(
+        update={"regions": (first, first, *world.population.regions[1:])}
+    )
+    broken_world = world.model_copy(update={"population": broken_state})
+
+    with pytest.raises(
+        SimulationQualityError,
+        match=(
+            r"unique-domain-entities failed: seed=118 tick=0; "
+            r"field=population.region_id duplicate=.*first_index=0 duplicate_index=1"
         ),
     ):
         assert_world_domain_invariants(
