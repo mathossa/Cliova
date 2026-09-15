@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import type { LocalMapRequest } from "../../lib/api.ts";
 import { generateLocalMap } from "./local-map-generator.ts";
 
-const physicalContext = {
+const physicalContext: LocalMapRequest["physical_context"] = {
   terrain: "plain",
   biome: "temperate",
   surface: "land",
@@ -16,7 +17,7 @@ const physicalContext = {
   world_extent_height: null,
 };
 
-function request(renderer = "settlemaker") {
+function request(renderer: LocalMapRequest["renderer"] = "settlemaker"): LocalMapRequest {
   const camp = renderer === "cliova_camp";
   return {
     contract_version: "v1",
