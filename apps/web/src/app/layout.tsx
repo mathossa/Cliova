@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "../features/command-center/command-center-live.css";
 
 export const metadata: Metadata = {
   title: "Cliova World Command",

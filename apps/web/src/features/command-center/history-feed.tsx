@@ -1,29 +1,34 @@
-import type { WorldSnapshot } from "./command-center.types";
+import type { HistoryFeedItem } from "./command-center.types";
 
-export function HistoryFeed({ feed }: { feed: WorldSnapshot["feed"] }) {
+export function HistoryFeed({ feed }: { feed: HistoryFeedItem[] }) {
   return (
-      <section className="panel feed-panel">
-        <div className="panel-heading compact">
-          <div>
-            <span className="eyebrow">Terminal / intel</span>
-            <h2>World feed</h2>
-          </div>
-          <div className="feed-filters" aria-label="Feed filters placeholders">
-            <button type="button" disabled className="selected">All</button>
-            <button type="button" disabled>State</button>
-            <button type="button" disabled>Economy</button>
-            <button type="button" disabled>Events</button>
-          </div>
+    <section className="panel feed-panel">
+      <div className="panel-heading compact">
+        <div>
+          <span className="eyebrow">World history</span>
+          <h2>Recent activity</h2>
         </div>
-        <div className="feed-list">
-          {feed.length === 0 && <p>No historical activity available.</p>}
-          {feed.map((item) => (
-            <div className="feed-line" key={`${item.time}-${item.text}`}>
-              <time>[{item.time}]</time>
+        <span className="live-badge">live</span>
+      </div>
+      <div className="feed-list">
+        {feed.length === 0 && <p className="empty-copy">No historical activity recorded for the recent tick window.</p>}
+        {feed.map((item) => (
+          <div className="feed-line" key={item.id} data-event-id={item.id}>
+            <time>[{item.time}]</time>
+            <div>
               <span className={`tone-${item.tone}`}>{item.text}</span>
+              <small className="feed-meta">
+                {item.causeCount > 0 ? `${item.causeCount} causal link${item.causeCount === 1 ? "" : "s"}` : "Recorded event"}
+              </small>
+              <details className="feed-technical">
+                <summary>Technical details</summary>
+                <div><strong>Source:</strong> {item.source}</div>
+                <div>{item.technicalDetail}</div>
+              </details>
             </div>
-          ))}
-        </div>
-      </section>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
