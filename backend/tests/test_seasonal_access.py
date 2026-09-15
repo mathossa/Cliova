@@ -3,7 +3,11 @@ from math import isfinite
 import pytest
 from simulation_quality import HeadlessTrace, assert_core_invariants
 
-from cliova.simulation.domains.economy import FOOD_PRODUCTION_RULES, EconomyDomain, initialize_economy
+from cliova.simulation.domains.economy import (
+    FOOD_PRODUCTION_RULES,
+    EconomyDomain,
+    initialize_economy,
+)
 from cliova.simulation.domains.knowledge import KnowledgeDomain, initialize_knowledge
 from cliova.simulation.domains.knowledge.catalog import MOBILE_PASTORALISM_KEY
 from cliova.simulation.domains.population import (
@@ -171,7 +175,8 @@ def test_non_adjacent_region_and_missing_capability_are_blocked() -> None:
     no_capability, no_capability_ids = _world(mobile=False)
     no_capability_tick = _engine().step(no_capability)
     assert no_capability_tick.world.society_regions[0].temporary_access == ()
-    assert _pastoral(no_capability_tick.world, no_capability_ids["core"].id).external_potential == 0.0
+    no_capability_pastoral = _pastoral(no_capability_tick.world, no_capability_ids["core"].id)
+    assert no_capability_pastoral.external_potential == 0.0
 
 
 def test_temporary_access_preserves_core_identity_and_population() -> None:
