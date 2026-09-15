@@ -260,9 +260,7 @@ def population_food_pressure_inputs(
                         f"food shortage severity {food.shortage_severity:.3f} "
                         "changed regional food security"
                     ),
-                    cause_event_ids=_food_pressure_causes(
-                        event_batch, regional_economy.region_id
-                    ),
+                    cause_event_ids=_food_pressure_causes(event_batch, regional_economy.region_id),
                 ),
             ),
         )
