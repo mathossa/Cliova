@@ -201,6 +201,11 @@ class SimulationEngine:
         for ordinal, queued in enumerate(inputs):
             working = self._apply_changes(working, queued.changes, TickPhase.INGEST_INPUTS)
             changes.extend(queued.changes)
+            cause_event_ids = tuple(
+                dict.fromkeys(
+                    cause_id for change in queued.changes for cause_id in change.cause_event_ids
+                )
+            )
             events.append(
                 SimulationEvent(
                     id=self._event_id(
@@ -211,6 +216,7 @@ class SimulationEngine:
                     kind=queued.kind,
                     reason=queued.reason,
                     subjects=queued.subjects,
+                    cause_event_ids=cause_event_ids,
                     changes=queued.changes,
                 )
             )

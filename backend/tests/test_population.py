@@ -4,12 +4,23 @@ from cliova.simulation.domains.population import (
     FOOD_SECURITY,
     MATERIAL_SECURITY,
     PopulationDomain,
+    PopulationNeedTarget,
     initialize_population,
+    population_need_input,
 )
+from cliova.simulation.domains.population.domain import _stochastic_count
 from cliova.simulation.domains.world.fixtures import create_starter_world
 from cliova.simulation.engine import SimulationEngine, TickExecutionError
 from cliova.simulation.history import EventHistory
 from cliova.simulation.types import SimulationChange, SimulationInput, WorldState
+
+
+class _FixedRandom:
+    def __init__(self, *values: float) -> None:
+        self._values = iter(values)
+
+    def random(self) -> float:
+        return next(self._values)
 
 
 def _initialized_world(*, seed: int = 41, total_per_region: int = 1_000) -> WorldState:
@@ -137,6 +148,96 @@ def test_significant_shortage_emits_causal_demographic_event_and_explanation() -
     history = EventHistory.from_ticks((result,))
     why = history.why(decline.id)
     assert tuple(item.event_id for item in why) == (input_event.id, decline.id)
+
+
+def test_population_need_boundary_preserves_cross_tick_causal_chain() -> None:
+    world = _initialized_world(seed=45)
+    assert world.geography is not None
+    fertile = world.geography.region("fertile-lowlands")
+    engine = SimulationEngine((PopulationDomain(),))
+
+    upstream_tick = engine.step(
+        world,
+        inputs=(
+            SimulationInput(
+                source="economy",
+                kind="resource-shortage",
+                reason="Food availability fell below regional demand",
+                subjects=(fertile.id,),
+            ),
+        ),
+    )
+    shortage_event = next(event for event in upstream_tick.events if event.source == "economy")
+
+    pressure = population_need_input(
+        upstream_tick.world,
+        source="economy",
+        kind="food-security-pressure",
+        reason="Food availability changed population food security",
+        targets=(
+            PopulationNeedTarget(
+                region_id=fertile.id,
+                key=FOOD_SECURITY,
+                value=0.1,
+                reason="food shortage reduced food security",
+                cause_event_ids=(shortage_event.id,),
+            ),
+        ),
+    )
+    assert pressure is not None
+    assert pressure.changes[0].delta == pytest.approx(-0.9)
+
+    demographic_tick = engine.step(upstream_tick.world, inputs=(pressure,))
+    pressure_event = next(
+        event
+        for event in demographic_tick.events
+        if event.source == "economy" and event.kind == "food-security-pressure"
+    )
+    decline = next(
+        event
+        for event in demographic_tick.events
+        if event.source == "population"
+        and event.kind == "population-decline"
+        and fertile.id in event.subjects
+    )
+
+    assert pressure_event.cause_event_ids == (shortage_event.id,)
+    assert decline.cause_event_ids == (pressure_event.id,)
+    history = EventHistory.from_ticks((upstream_tick, demographic_tick))
+    why = history.why(decline.id)
+    assert tuple(item.event_id for item in why) == (
+        shortage_event.id,
+        pressure_event.id,
+        decline.id,
+    )
+
+
+def test_zero_population_has_no_births_or_outbound_migration_pressure() -> None:
+    world = _initialized_world(seed=46, total_per_region=1)
+    assert world.geography is not None
+    assert world.population is not None
+    fertile = world.geography.region("fertile-lowlands")
+    populations = list(world.population.regions)
+    index = next(
+        i for i, population in enumerate(populations) if population.region_id == fertile.id
+    )
+    populations[index] = populations[index].model_copy(
+        update={"total": 0, "migration_pressure": 0.75}
+    )
+    world = world.model_copy(
+        update={"population": world.population.model_copy(update={"regions": tuple(populations)})}
+    )
+
+    result = SimulationEngine((PopulationDomain(),)).step(world)
+    assert result.world.population is not None
+    after = result.world.population.region(fertile.id)
+    assert after.total == 0
+    assert after.migration_pressure == 0.0
+
+
+def test_fractional_demography_does_not_freeze_small_populations_by_rounding() -> None:
+    assert _stochastic_count(0.25, _FixedRandom(0.20)) == 1
+    assert _stochastic_count(0.25, _FixedRandom(0.30)) == 0
 
 
 def test_population_replay_is_deterministic_across_multiple_ticks() -> None:
