@@ -51,7 +51,7 @@ export function CommandCenterLoader({ client = liveCommandCenterClient }: { clie
   }
 
   async function createWorld(seed: number) {
-    const result = await client.createWorld({ seed });
+    const result = await client.createWorld({ seed, generated_geography: true });
     setState(resolveLoadResult(result));
   }
 
@@ -117,7 +117,7 @@ export function WorldLoadStatus({
   const [creating, setCreating] = useState(false);
   const messages = {
     loading: ["Loading world", "Retrieving authoritative simulation status…"],
-    empty: ["No development world", "Create a seeded development world to start the Simulation Lab."],
+    empty: ["No development world", "Create a seeded generated world to start the Simulation Lab."],
     missing: ["World missing", `The selected world ${missingWorldId ?? ""} is no longer available.`],
     unavailable: ["Backend unavailable", message ?? "The Cliova API could not be reached."],
   } as const;
@@ -153,7 +153,7 @@ export function WorldLoadStatus({
               Development seed
               <input value={seed} onChange={(event) => setSeed(event.target.value)} inputMode="numeric" />
             </label>
-            <button type="submit" disabled={creating}>{creating ? "Creating…" : "Create world"}</button>
+            <button type="submit" disabled={creating}>{creating ? "Creating…" : "Create generated world"}</button>
           </form>
         )}
         {createError && <p className="action-error" role="alert">{createError}</p>}
