@@ -361,7 +361,7 @@
     height: 100%;
     min-height: 0;
     overflow: hidden;
-    grid-template-rows: 168px minmax(0, 1fr) 176px;
+    grid-template-rows: 200px 260px minmax(0, 1fr);
   }
 
   .terminal-workspace > .terminal-console { grid-row: 1; }
@@ -383,20 +383,28 @@
   .terminal-console {
     min-height: 0;
     overflow: hidden;
-    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-rows: minmax(0, 1fr) auto auto;
     gap: 8px;
   }
 
-  .terminal-console form {
+  .terminal-console .console-history {
     grid-row: 1;
-    min-height: 52px;
-    padding: 0 12px;
-    font-size: 13px;
+    min-height: 0;
   }
 
-  .terminal-console form input { font-size: 13px; }
-  .terminal-console .console-history { grid-row: 2; min-height: 0; }
-  .terminal-console > small { grid-row: 3; margin-top: 0; }
+  .terminal-console > small {
+    grid-row: 2;
+    margin-top: 0;
+  }
+
+  .terminal-console form {
+    grid-row: 3;
+    min-height: 72px;
+    padding: 0 14px;
+    font-size: 14px;
+  }
+
+  .terminal-console form input { font-size: 14px; }
 
   .data-column {
     grid-template-rows: minmax(0, 1fr) auto;
