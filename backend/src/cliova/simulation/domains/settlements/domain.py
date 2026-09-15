@@ -79,8 +79,7 @@ class SettlementDomain:
                 continue
 
             present = any(
-                access.region_id == settlement.region_id
-                for access in relationship.temporary_access
+                access.region_id == settlement.region_id for access in relationship.temporary_access
             )
             desired: SettlementStatus | None = None
             if present and settlement.status == "dormant":
