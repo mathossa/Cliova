@@ -11,7 +11,7 @@ These instructions define how AI coding agents should work in this repository. T
 - If a material requirement is unclear, contradictory or underspecified, **ask the user** rather than hallucinating an answer.
 - Keep changes focused on the issue. Do not opportunistically refactor unrelated code.
 - Preserve existing working behavior unless the issue explicitly requires changing it.
-- Prefer adapting proven, suitable open-source solutions over reimplementing substantial generic functionality from scratch when doing so reduces risk and maintenance burden.
+- For any substantial simulation mechanic or generic subsystem, **copy/adapt/reuse first and write from scratch only as a justified fallback**. Follow the mandatory OSS gate in section 5 before committing to a new implementation.
 - Do not automatically create follow-up GitHub issues. **Propose them to the user first.**
 - Do not automatically merge pull requests.
 
@@ -86,41 +86,55 @@ However, the vision is a **living design**, not a frozen specification.
 
 For narrow issues, read only the specific vision documents that are relevant. Start from `docs/vision/README.md` when you need to determine which document applies; do not automatically load all vision files.
 
-## 5. Reuse before reinventing
+## 5. Copy/adapt first: mandatory open-source gate
 
-For **non-trivial generic functionality**, actively check whether a suitable maintained open-source implementation, library or reference project already exists before writing a substantial implementation from scratch.
+Cliova should not spend AI-generated code on a substantial mechanic that already has a suitable open-source implementation.
 
-This is especially relevant for generic infrastructure or algorithms such as:
+This gate applies to **both generic infrastructure and simulation/game-domain mechanics**. A mechanic is not exempt merely because its final behavior is Cliova-specific. Population, economy, production, storage, trade, knowledge/innovation, governance, diplomacy, warfare, migration, crises, world generation and similar domains must still be checked for reusable foundations before new substantial implementations are written.
 
-- graph/pathfinding and spatial utilities;
-- schedulers and job coordination;
-- serialization/schema tooling;
-- deterministic/randomness helpers;
-- simulation utilities and numerical algorithms;
-- persistence/migration helpers;
-- API/client generation;
-- reusable UI primitives or data-visualization infrastructure.
+Tiny helpers, straightforward adapters, presentation glue and genuinely small issue-local changes do not need an external survey.
 
-It is usually **not** necessary to search externally for tiny helpers, straightforward application glue or Cliova-specific domain rules.
+### Mandatory reuse workflow
 
-### Reuse workflow
+Before implementing substantial new behavior:
 
-1. First check whether the required capability already exists in the repository or its current dependencies.
-2. If substantial generic functionality is still needed, perform a **targeted** GitHub/open-source search rather than a broad survey.
-3. Compare promising candidates on:
-   - functional fit;
-   - license and obligations;
-   - maintenance/activity;
-   - quality and test coverage;
-   - dependency weight;
-   - security/reputation where relevant;
-   - how much adaptation Cliova would still require.
-4. Prefer, in order where practical:
-   - using an established dependency through its public API;
-   - building a thin adapter around a suitable project/library;
-   - adapting a small well-understood portion with proper attribution;
-   - writing a Cliova-specific implementation from scratch when existing options are unsuitable.
-5. Document the selected upstream source and important trade-offs in the PR when external code materially influenced the implementation.
+1. **Check Cliova first.** Determine whether the capability already exists in the repository or current dependencies.
+2. **Search targeted OSS sources before designing from scratch.** Search maintained libraries **and** real games/simulators/reference projects that implement comparable behavior. Prefer targeted searches over broad surveys.
+3. **Inspect actual implementation code.** A README or feature list is not enough when deciding whether code can be reused. Inspect the relevant files, data model and tests for promising candidates.
+4. **Verify provenance and license before copying/adapting.** Confirm the repository/file license and obligations. Publicly visible code without a clear compatible license is not reusable source.
+5. **Compare candidates explicitly.** For each serious candidate, consider functional fit, language/runtime fit, granularity, determinism, quality/tests, maintenance, dependency weight, security/reputation, license, and adaptation cost.
+6. **Choose reuse before invention where practical.** Prefer an existing proven implementation when it can supply a meaningful part of the required behavior without violating Cliova's product or architecture constraints.
+7. **Document the decision.** PR notes for substantial mechanics must name the OSS candidates checked, their licenses, and whether Cliova used, adapted or rejected them. Rejections need a concrete reason.
+
+### Decision order
+
+Prefer, where practical:
+
+1. **Adapt/copy a compatible, well-understood implementation** when its mechanics substantially match the requested behavior and the license permits it.
+2. **Use an established dependency through a thin Cliova adapter** when the dependency already owns the generic algorithm or simulation machinery.
+3. **Combine reused foundations with Cliova-specific rules** when upstream code solves only part of the problem.
+4. **Write a fresh Cliova implementation only when the checked alternatives are unsuitable.**
+
+A from-scratch implementation is **not** the default just because adapting foreign code takes work or uses a different language. Translating a well-understood algorithm/model can be preferable to inventing a new one, provided attribution and license obligations are preserved.
+
+If a plausible compatible implementation exists but the agent wants to reject it in favor of a substantial fresh design, **raise that trade-off to the user before coding**.
+
+### Existing Cliova code is not automatically grandfathered
+
+When materially extending a custom subsystem that has never had a proper OSS comparison, perform the reuse check then. Do not treat an earlier AI-generated implementation as permanently authoritative merely because later issues depend on it. Preserve public contracts where useful, but replacing or adapting internals is allowed when a better OSS foundation is identified and the user agrees to the migration.
+
+### What must remain Cliova-specific
+
+Reuse does not mean cloning another game's product design. Cliova still owns:
+
+- player role and indirect-control model;
+- emergent-history goals;
+- authoritative domain boundaries and public contracts unless intentionally changed;
+- tuning, pacing and balance;
+- which mechanics are exposed to players;
+- how reused mechanics are combined into Cliova's simulation.
+
+Copy mechanisms before inventing them; do not copy product identity blindly.
 
 ### Licensing and provenance
 
@@ -135,7 +149,7 @@ Cliova is licensed under **GPLv3**. External code must have a license that can l
 - If license compatibility or obligations are unclear, stop and ask the user before integrating or copying the code.
 - Do not introduce an external project whose license would unexpectedly change Cliova's distribution obligations without explicit user approval.
 
-Reuse is a preference, **not** a requirement to add dependencies. Avoid a large or poorly maintained dependency when a small local implementation is safer and clearer.
+Reuse is a strong default, **not** permission to add a huge or unsuitable dependency. Rejecting a candidate is valid when the mismatch is real and documented.
 
 ## 6. Product direction
 
@@ -209,7 +223,8 @@ Before coding:
 - check listed dependencies and directly related issues when they affect the implementation;
 - inspect existing behavior/tests before replacing it;
 - identify whether the issue changes simulation truth, API contracts, persistence or only presentation;
-- for substantial generic functionality, perform the reuse check from section 5 before committing to a from-scratch design.
+- for any substantial simulation mechanic or generic functionality, complete the mandatory OSS gate from section 5 **before committing to a from-scratch design**;
+- if the affected custom subsystem has never had a documented reuse comparison, do that comparison before materially extending it.
 
 During coding:
 
@@ -218,7 +233,8 @@ During coding:
 - avoid solving future issues prematurely;
 - avoid adding abstractions with no current use;
 - add comments only where intent is not clear from code;
-- keep configuration/constants centralized when behavior will need tuning.
+- keep configuration/constants centralized when behavior will need tuning;
+- preserve upstream attribution in any copied/adapted implementation.
 
 If you discover a separate bug or improvement:
 
@@ -298,7 +314,8 @@ Keep names concise and tied to the GitHub issue.
 - Use a focused branch/PR for the issue when working through Git.
 - Keep commits and PR descriptions scoped to the requested work.
 - Include what changed, why, lightweight tests actually run, heavier/manual tests still recommended, assumptions and proposed follow-ups.
-- When material third-party code or an external implementation influenced the solution, include the upstream project/source and license in the PR notes.
+- For substantial mechanics, include an **OSS reuse decision**: candidates inspected, license, selected source or concrete reasons for rejecting each serious candidate.
+- When third-party code or an external implementation influenced the solution, include the upstream project/source and license in the PR notes and preserve required source-level attribution.
 - Do not claim tests passed unless they were actually run.
 - Do not hide known failures.
 - Do not create unrelated follow-up issues automatically; propose them to the user.
@@ -311,8 +328,10 @@ A good contribution:
 - solves the requested issue rather than a larger imagined problem;
 - reads only enough repository context to make a correct decision;
 - asks rather than invents when product intent is genuinely unclear;
-- checks for suitable reusable open-source foundations before reinventing substantial generic functionality;
+- performs the copy/adapt-first OSS gate for substantial simulation mechanics and generic functionality;
+- inspects promising upstream implementation code rather than stopping at README-level inspiration;
 - verifies licensing/provenance before reusing external code;
+- writes substantial new mechanics from scratch only when checked alternatives are unsuitable and the decision is documented;
 - keeps authoritative simulation logic in the correct layer;
 - remains deterministic and explainable where simulation behavior is involved;
 - includes proportionate lightweight automated tests;
