@@ -211,7 +211,9 @@ class ScenarioDomain:
                 raise ValueError("scenario pressure delta does not match replacement intensity")
             pressures[index] = state
 
-        pressures.sort(key=lambda pressure: (pressure.key, pressure.region_id.value.hex, pressure.id.hex))
+        pressures.sort(
+            key=lambda pressure: (pressure.key, pressure.region_id.value.hex, pressure.id.hex)
+        )
         return world.model_copy(update={"pressures": tuple(pressures)})
 
 
