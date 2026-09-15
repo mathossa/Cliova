@@ -10,6 +10,7 @@ from uuid import UUID
 
 from cliova.api.v1.local_map_models import (
     LocalMapPhysicalContext,
+    LocalMapRendererDto,
     LocalMapRequest,
     SettlementDetailResponse,
     SettlementSummary,
@@ -114,7 +115,9 @@ def local_map_request(world: WorldState, settlement_id: UUID) -> LocalMapRequest
         world_extent_height=(presentation.height if presentation is not None else None),
     )
     detail = settlement_detail(world, settlement_id)
-    renderer = "settlemaker" if settlement.archetype == "permanent" else "cliova_camp"
+    renderer: LocalMapRendererDto = (
+        "settlemaker" if settlement.archetype == "permanent" else "cliova_camp"
+    )
     renderer_version = SETTLEMAKER_VERSION if renderer == "settlemaker" else CAMP_RENDERER_VERSION
     return LocalMapRequest(
         world_id=world.id.value,
