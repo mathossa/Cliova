@@ -65,18 +65,28 @@ export function StrategicMap({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<LeafletMap | null>(null);
   const regionLayersRef = useRef(new Map<string, LeafletLayer>());
+  const selectedRegionRef = useRef(selectedRegionId);
   const [overlays, setOverlays] = useState<Set<OverlayId>>(() => new Set(["settlements"]));
   const [runtimeState, setRuntimeState] = useState<"loading" | "ready" | "error">("loading");
   const [runtimeError, setRuntimeError] = useState<string | null>(null);
   const [baseError, setBaseError] = useState(false);
   const [selectedSettlementId, setSelectedSettlementId] = useState<string | null>(null);
   const mapData = world.map;
+  selectedRegionRef.current = selectedRegionId;
 
-  const selectedRegion = world.regions.find((region) => region.id === selectedRegionId) ?? world.regions[0] ?? null;
+  const selectedRegion = world.regions.find((region) => region.id === selectedRegionId)
+    ?? world.regions[0]
+    ?? null;
   const selectedFeature = mapData.regions.find((region) => region.id === selectedRegion?.id) ?? null;
-  const settlements = mapData.settlements.filter((settlement) => settlement.region_id === selectedRegion?.id);
-  const selectedSettlement = mapData.settlements.find((settlement) => settlement.id === selectedSettlementId) ?? null;
-  const regionHistory = world.feed.filter((item) => selectedRegion && item.regionIds.includes(selectedRegion.id)).slice(0, 3);
+  const settlements = mapData.settlements.filter(
+    (settlement) => settlement.region_id === selectedRegion?.id,
+  );
+  const selectedSettlement = mapData.settlements.find(
+    (settlement) => settlement.id === selectedSettlementId,
+  ) ?? null;
+  const regionHistory = world.feed
+    .filter((item) => selectedRegion && item.regionIds.includes(selectedRegion.id))
+    .slice(0, 3);
   const maxPopulation = useMemo(
     () => Math.max(1, ...mapData.regions.map((region) => region.population ?? 0)),
     [mapData.regions],
@@ -84,6 +94,7 @@ export function StrategicMap({
 
   useEffect(() => {
     const baseMapUrl = mapData.base_map_url;
+    const regionLayers = regionLayersRef.current;
     if (!mapData.available || !containerRef.current || !baseMapUrl) {
       setRuntimeState(mapData.available ? "error" : "ready");
       return;
@@ -100,17 +111,22 @@ export function StrategicMap({
       map = L.map(containerRef.current, {
         crs: L.CRS.Simple,
         minZoom: -3,
-        maxZoom: 6,
+        maxZoom: 7,
         zoomSnap: 0.25,
+        zoomDelta: 0.5,
+        maxBounds: bounds,
+        maxBoundsViscosity: 0.82,
         attributionControl: true,
       });
       mapRef.current = map;
-      map.attributionControl.addAttribution(`Leaflet ${LEAFLET_VERSION} · non-Earth game coordinates`);
+      map.attributionControl.addAttribution(
+        `Leaflet ${LEAFLET_VERSION} · WorldEngine terrain · non-Earth game coordinates`,
+      );
       L.imageOverlay(baseMapUrl, bounds, { interactive: false, zIndex: 1 })
         .on("error", () => setBaseError(true))
         .addTo(map);
 
-      regionLayersRef.current.clear();
+      regionLayers.clear();
       for (const region of mapData.regions) {
         const layer = L.geoJSON(
           {
@@ -119,17 +135,31 @@ export function StrategicMap({
             geometry: region.geometry,
           },
           {
-            style: () => regionStyle(region, region.id === selectedRegionId, overlays, maxPopulation),
+            style: () => regionStyle(
+              region,
+              region.id === selectedRegionRef.current,
+              overlays,
+              maxPopulation,
+            ),
             onEachFeature: (_feature, featureLayer) => {
               featureLayer.on("click", () => onSelectRegion(region.id));
-              featureLayer.on("mouseover", () => featureLayer.setStyle?.({ weight: 2.6, fillOpacity: 0.34 }));
+              featureLayer.on("mouseover", () => featureLayer.setStyle?.({
+                weight: 1.8,
+                opacity: 0.92,
+                fillOpacity: overlayFillOpacity(region, overlays, maxPopulation, 0.06),
+              }));
               featureLayer.on("mouseout", () => featureLayer.setStyle?.(
-                regionStyle(region, region.id === selectedRegionId, overlays, maxPopulation),
+                regionStyle(
+                  region,
+                  region.id === selectedRegionRef.current,
+                  overlays,
+                  maxPopulation,
+                ),
               ));
             },
           },
         ).addTo(map);
-        regionLayersRef.current.set(region.id, layer);
+        regionLayers.set(region.id, layer);
       }
 
       if (overlays.has("settlements")) {
@@ -141,8 +171,8 @@ export function StrategicMap({
               icon: L.divIcon({
                 className: `strategic-settlement-icon ${iconClass} status-${settlement.status}`,
                 html: '<span aria-hidden="true"></span>',
-                iconSize: [18, 18],
-                iconAnchor: [9, 9],
+                iconSize: [22, 22],
+                iconAnchor: [11, 11],
               }),
               keyboard: true,
               title: settlement.name,
@@ -157,7 +187,7 @@ export function StrategicMap({
         }
       }
 
-      map.fitBounds(bounds, { padding: [16, 16] });
+      map.fitBounds(bounds, { padding: [6, 6], animate: false });
       setRuntimeState("ready");
     }).catch((error: unknown) => {
       if (cancelled) return;
@@ -169,7 +199,7 @@ export function StrategicMap({
       cancelled = true;
       map?.remove();
       if (mapRef.current === map) mapRef.current = null;
-      regionLayersRef.current.clear();
+      regionLayers.clear();
     };
   }, [mapData, maxPopulation, onSelectRegion, overlays]);
 
@@ -195,7 +225,7 @@ export function StrategicMap({
     void loadLeaflet().then((L) => {
       mapRef.current?.fitBounds(
         L.latLngBounds([[0, 0], [mapData.extent_height, mapData.extent_width]]),
-        { padding: [16, 16] },
+        { padding: [6, 6], animate: true },
       );
     });
   }
@@ -204,7 +234,10 @@ export function StrategicMap({
     return (
       <div className="strategic-map-unavailable" role="status">
         <strong>Strategic geography unavailable</strong>
-        <p>This persisted world has no #59 presentation geometry. Cliova will not substitute fake map positions.</p>
+        <p>
+          This persisted world has no #59 presentation geometry. Cliova will not substitute
+          fake map positions.
+        </p>
         <small>{mapData.unavailable_reason ?? "map unavailable"}</small>
       </div>
     );
@@ -227,8 +260,14 @@ export function StrategicMap({
             </button>
           ))}
         </div>
-        <div ref={containerRef} className="strategic-map-canvas" data-coordinate-system={mapData.coordinate_system} />
-        {runtimeState === "loading" && <div className="strategic-map-state">Loading generated geography…</div>}
+        <div
+          ref={containerRef}
+          className="strategic-map-canvas"
+          data-coordinate-system={mapData.coordinate_system}
+        />
+        {runtimeState === "loading" && (
+          <div className="strategic-map-state">Rendering strategic terrain…</div>
+        )}
         {runtimeState === "error" && (
           <div className="strategic-map-state error" role="alert">
             Interactive map unavailable. {runtimeError ?? "Leaflet runtime failed to initialize."}
@@ -247,7 +286,9 @@ export function StrategicMap({
         <h3>{selectedRegion?.label ?? "No region selected"}</h3>
         {selectedRegion && selectedFeature && (
           <>
-            <p>{selectedRegion.terrain} · {selectedRegion.biome} · {formatLabel(selectedFeature.surface)}</p>
+            <p>
+              {selectedRegion.terrain} · {selectedRegion.biome} · {formatLabel(selectedFeature.surface)}
+            </p>
             <dl>
               <ContextStat label="Population" value={selectedRegion.population} />
               <ContextStat label="Food shortage" value={selectedRegion.food.shortageSeverity} />
@@ -255,27 +296,37 @@ export function StrategicMap({
               <ContextStat label="Elevation" value={formatNumber(selectedFeature.mean_elevation)} />
             </dl>
             <ContextGroup title="Society presence">
-              {selectedFeature.core_society_ids.length === 0 && selectedFeature.temporary_presence.length === 0 && <span>None projected.</span>}
+              {selectedFeature.core_society_ids.length === 0
+                && selectedFeature.temporary_presence.length === 0
+                && <span>None projected.</span>}
               {selectedFeature.core_society_ids.map((societyId) => (
                 <span key={`core-${societyId}`}>{societyLabel(world, societyId)} · core</span>
               ))}
               {selectedFeature.temporary_presence.map((presence) => (
                 <span key={`${presence.society_id}-${presence.production_method}`}>
-                  {societyLabel(world, presence.society_id)} · {formatLabel(presence.production_method)} · temporary {formatNumber(presence.access_share)}
+                  {societyLabel(world, presence.society_id)} · {formatLabel(presence.production_method)}
+                  {" · temporary "}{formatNumber(presence.access_share)}
                 </span>
               ))}
             </ContextGroup>
             <ContextGroup title="Settlements / camps">
               {settlements.length === 0 && <span>None in authoritative settlement state.</span>}
               {settlements.map((settlement) => (
-                <button type="button" key={settlement.id} onClick={() => setSelectedSettlementId(settlement.id)}>
-                  {settlement.name} · {formatLabel(settlement.archetype)} · {settlement.population_estimate}
+                <button
+                  type="button"
+                  key={settlement.id}
+                  onClick={() => setSelectedSettlementId(settlement.id)}
+                >
+                  {settlement.name} · {formatLabel(settlement.archetype)}
+                  {" · "}{settlement.population_estimate}
                 </button>
               ))}
             </ContextGroup>
             <ContextGroup title="Recent here">
               {regionHistory.length === 0 && <span>No recent region-linked history.</span>}
-              {regionHistory.map((item) => <span key={item.id}>{item.time} · {item.text}</span>)}
+              {regionHistory.map((item) => (
+                <span key={item.id}>{item.time} · {item.text}</span>
+              ))}
             </ContextGroup>
           </>
         )}
@@ -285,7 +336,9 @@ export function StrategicMap({
             <span className="eyebrow">Settlement</span>
             <strong>{selectedSettlement.name}</strong>
             <small>
-              {formatLabel(selectedSettlement.archetype)} · {formatLabel(selectedSettlement.status)} · population {selectedSettlement.population_estimate} · {selectedSettlement.structure_count} strategic structures
+              {formatLabel(selectedSettlement.archetype)} · {formatLabel(selectedSettlement.status)}
+              {" · population "}{selectedSettlement.population_estimate}
+              {" · "}{selectedSettlement.structure_count} strategic structures
             </small>
             <a href={selectedSettlement.local_map_path}>Open local settlement map</a>
             <small>Local layout is owned by #61; this link is the strategic handoff only.</small>
@@ -310,7 +363,26 @@ function ContextGroup({ title, children }: { title: string; children: React.Reac
 }
 
 function societyLabel(world: WorldSnapshot, societyId: string): string {
-  return world.societies.find((society) => society.id === societyId)?.label ?? `Society ${societyId.slice(0, 8)}`;
+  return world.societies.find((society) => society.id === societyId)?.label
+    ?? `Society ${societyId.slice(0, 8)}`;
+}
+
+function overlayFillOpacity(
+  region: MapRegionFeature,
+  overlays: Set<OverlayId>,
+  maxPopulation: number,
+  minimum: number,
+): number {
+  if (overlays.has("tension") && region.pressure_intensity !== null) {
+    return minimum + (0.26 * Math.min(1, region.pressure_intensity));
+  }
+  if (overlays.has("food") && region.food_shortage_severity !== null) {
+    return minimum + (0.22 * Math.min(1, region.food_shortage_severity));
+  }
+  if (overlays.has("population") && region.population !== null) {
+    return minimum + (0.20 * Math.min(1, region.population / maxPopulation));
+  }
+  return 0;
 }
 
 function regionStyle(
@@ -319,30 +391,20 @@ function regionStyle(
   overlays: Set<OverlayId>,
   maxPopulation: number,
 ): PathStyle {
-  let fillColor = "#c7d0d6";
-  let fillOpacity = 0.035;
-  if (overlays.has("population") && region.population !== null) {
-    fillColor = "#77b9a2";
-    fillOpacity = 0.08 + (0.34 * Math.min(1, region.population / maxPopulation));
-  }
-  if (overlays.has("food") && region.food_shortage_severity !== null) {
-    fillColor = "#d6a25b";
-    fillOpacity = 0.08 + (0.36 * Math.min(1, region.food_shortage_severity));
-  }
-  if (overlays.has("tension") && region.pressure_intensity !== null) {
-    fillColor = "#df746d";
-    fillOpacity = 0.08 + (0.42 * Math.min(1, region.pressure_intensity));
-  }
+  let fillColor = "#cbd6c8";
+  if (overlays.has("population") && region.population !== null) fillColor = "#86c8a4";
+  if (overlays.has("food") && region.food_shortage_severity !== null) fillColor = "#e0b45f";
+  if (overlays.has("tension") && region.pressure_intensity !== null) fillColor = "#df756d";
 
   const hasCore = overlays.has("core") && region.core_society_ids.length > 0;
   const hasTemporary = overlays.has("temporary") && region.temporary_presence.length > 0;
   return {
-    color: selected ? "#f0c46d" : hasCore ? "#78d6a3" : hasTemporary ? "#72a9d1" : "#a4b1ba",
-    weight: selected ? 2.5 : hasCore || hasTemporary ? 1.8 : 0.8,
-    opacity: selected ? 1 : 0.66,
+    color: selected ? "#f3c96b" : hasCore ? "#a3e0b8" : hasTemporary ? "#8ac4de" : "#d6ddd9",
+    weight: selected ? 2.4 : hasCore || hasTemporary ? 1.45 : 0.55,
+    opacity: selected ? 0.98 : hasCore || hasTemporary ? 0.82 : 0.22,
     dashArray: hasTemporary && !hasCore ? "3 4" : undefined,
     fillColor,
-    fillOpacity,
+    fillOpacity: overlayFillOpacity(region, overlays, maxPopulation, selected ? 0.04 : 0.02),
   };
 }
 
@@ -359,14 +421,20 @@ function loadLeaflet(): Promise<LeafletNamespace> {
       document.head.appendChild(stylesheet);
     }
 
-    const existing = document.querySelector<HTMLScriptElement>('script[data-cliova-leaflet="1.9.4"]');
+    const existing = document.querySelector<HTMLScriptElement>(
+      'script[data-cliova-leaflet="1.9.4"]',
+    );
     const complete = () => {
       if (window.L) resolve(window.L);
       else reject(new Error("Leaflet 1.9.4 loaded without exposing its runtime API."));
     };
     if (existing) {
       existing.addEventListener("load", complete, { once: true });
-      existing.addEventListener("error", () => reject(new Error("Leaflet 1.9.4 could not be loaded.")), { once: true });
+      existing.addEventListener(
+        "error",
+        () => reject(new Error("Leaflet 1.9.4 could not be loaded.")),
+        { once: true },
+      );
       return;
     }
 
@@ -375,7 +443,11 @@ function loadLeaflet(): Promise<LeafletNamespace> {
     script.async = true;
     script.dataset.cliovaLeaflet = LEAFLET_VERSION;
     script.addEventListener("load", complete, { once: true });
-    script.addEventListener("error", () => reject(new Error("Leaflet 1.9.4 could not be loaded.")), { once: true });
+    script.addEventListener(
+      "error",
+      () => reject(new Error("Leaflet 1.9.4 could not be loaded.")),
+      { once: true },
+    );
     document.head.appendChild(script);
   });
   return window.__cliovaLeafletPromise;
