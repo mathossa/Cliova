@@ -172,10 +172,9 @@ def _partition(
         ay, ax = a
         by, bx = b
         surface_change = 1.75 if physical.ocean[ay, ax] != physical.ocean[by, bx] else 0.0
-        physical_change = (
-            0.60 * abs(float(elevation[ay, ax]) - float(elevation[by, bx]))
-            + 0.20 * abs(float(temperature[ay, ax]) - float(temperature[by, bx]))
-        )
+        physical_change = 0.60 * abs(
+            float(elevation[ay, ax]) - float(elevation[by, bx])
+        ) + 0.20 * abs(float(temperature[ay, ax]) - float(temperature[by, bx]))
         graph.edges[a, b]["weight"] = 1.0 + surface_change + physical_change
 
     centers = _grid_centers(width=physical.width, height=physical.height, count=region_count)
@@ -249,9 +248,7 @@ def _dominant_biome(
 
 
 def _forest_fraction(physical: PhysicalWorld, cells: tuple[tuple[int, int], ...]) -> float:
-    land_names = [
-        str(physical.biome[y, x]).lower() for y, x in cells if not physical.ocean[y, x]
-    ]
+    land_names = [str(physical.biome[y, x]).lower() for y, x in cells if not physical.ocean[y, x]]
     if not land_names:
         return 0.0
     return sum("forest" in name or "rain forest" in name for name in land_names) / len(land_names)
@@ -391,9 +388,7 @@ def _derive_region(
     )
     temperature_extreme = abs(mean_temperature - 0.50) * 2.0
     dryness = 1.0 - ((mean_precipitation + mean_humidity) / 2.0)
-    climate_pressure = _unit(
-        0.45 * temperature_extreme + 0.35 * dryness + 0.20 * mean_topography
-    )
+    climate_pressure = _unit(0.45 * temperature_extreme + 0.35 * dryness + 0.20 * mean_topography)
     habitability = _unit(
         land_fraction
         * (1.0 - (0.45 * climate_pressure))
@@ -416,19 +411,13 @@ def _derive_region(
         * (1.0 - (0.45 * mean_topography))
     )
     wild_food = _unit(
-        land_fraction
-        * (0.55 * forest_fraction + 0.20 * moisture + 0.25 * habitability)
+        land_fraction * (0.55 * forest_fraction + 0.20 * moisture + 0.25 * habitability)
     )
-    aquatic_food = _unit(
-        0.75 * water_fraction + 0.45 * coast_fraction + 0.25 * mean_hydrology
-    )
+    aquatic_food = _unit(0.75 * water_fraction + 0.45 * coast_fraction + 0.25 * mean_hydrology)
     timber = _unit(land_fraction * forest_fraction * (0.60 + (0.40 * mean_precipitation)))
-    stone = _unit(
-        land_fraction * (0.25 + (0.45 * mean_topography) + (0.30 * mean_elevation))
-    )
+    stone = _unit(land_fraction * (0.25 + (0.45 * mean_topography) + (0.30 * mean_elevation)))
     metal_ores = _unit(
-        land_fraction
-        * (0.20 + (0.45 * plate_boundary_fraction) + (0.35 * mean_topography))
+        land_fraction * (0.20 + (0.45 * plate_boundary_fraction) + (0.35 * mean_topography))
     )
 
     resources = tuple(
