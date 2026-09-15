@@ -14,6 +14,7 @@ from cliova.simulation.types import (
     DomainResult,
     EntityId,
     EventProposal,
+    PressureMilestone,
     ScenarioPressureState,
     SimulationChange,
     SimulationDiagnostic,
@@ -278,6 +279,7 @@ def _advance_food_pressure(
 
     if current is None and intensity < rules.emerging_threshold:
         return None
+    milestone: PressureMilestone
     if intensity <= rules.resolution_threshold:
         intensity = 0.0
         milestone = "resolved"
