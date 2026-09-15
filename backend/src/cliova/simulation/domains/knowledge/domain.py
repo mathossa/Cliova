@@ -81,12 +81,18 @@ def economy_learning_inputs(
                 )
                 denominator = max(outcome.production, outcome.demand)
                 if resource == "food":
-                    methods = {method.method: method for method in outcome.food_production}
                     for track, method in (
                         ("cultivation", "cultivation"),
                         ("pastoralism", "pastoralism"),
                     ):
-                        activity = methods.get(method)
+                        activity = next(
+                            (
+                                candidate
+                                for candidate in outcome.food_production
+                                if candidate.method == method
+                            ),
+                            None,
+                        )
                         experience.append(
                             ExperienceGain(
                                 track=track,
