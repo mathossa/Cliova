@@ -21,7 +21,14 @@ _BIOME_FILL = {
 _OCEAN_FILL = "#17394a"
 
 
-def _rect(*, x: int, y: int, width: int, fill: str | None = None, opacity: float | None = None) -> str:
+def _rect(
+    *,
+    x: int,
+    y: int,
+    width: int,
+    fill: str | None = None,
+    opacity: float | None = None,
+) -> str:
     attributes = [f'x="{x}"', f'y="{y}"', f'width="{width}"', 'height="1"']
     if fill is not None:
         attributes.append(f'fill="{fill}"')
@@ -86,8 +93,10 @@ def render_physical_base_svg(world: WorldState) -> str:
         f"Cliova derived strategic base; render={MAP_RENDER_VERSION}; source={generation_note}"
     )
     return (
-        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {presentation.width} {presentation.height}" '
-        f'width="{presentation.width}" height="{presentation.height}" shape-rendering="crispEdges" '
+        '<svg xmlns="http://www.w3.org/2000/svg" '
+        f'viewBox="0 0 {presentation.width} {presentation.height}" '
+        f'width="{presentation.width}" height="{presentation.height}" '
+        'shape-rendering="crispEdges" '
         f'data-render-version="{MAP_RENDER_VERSION}">'
         f"<metadata>{metadata}</metadata>"
         "<defs>"
@@ -96,14 +105,16 @@ def render_physical_base_svg(world: WorldState) -> str:
         '<path d="M0,1 L1,0" stroke="#d5d1be" stroke-width="0.08" opacity="0.7"/>'
         "</pattern>"
         "</defs>"
-        f'<rect width="{presentation.width}" height="{presentation.height}" fill="{_OCEAN_FILL}"/>'
+        f'<rect width="{presentation.width}" height="{presentation.height}" '
+        f'fill="{_OCEAN_FILL}"/>'
         '<g clip-path="url(#land-mask)">'
         f"{''.join(region_layers)}"
         f"{''.join(relief_layers)}"
         f"{''.join(highland_layers)}"
         "</g>"
         '<g clip-path="url(#land-mask)" opacity="0.16">'
-        f'<rect width="{presentation.width}" height="{presentation.height}" fill="none" stroke="#e8e0c4" stroke-width="0.08"/>'
+        f'<rect width="{presentation.width}" height="{presentation.height}" fill="none" '
+        'stroke="#e8e0c4" stroke-width="0.08"/>'
         "</g>"
         "</svg>"
     )
