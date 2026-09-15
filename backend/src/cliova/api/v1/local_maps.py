@@ -79,7 +79,11 @@ def local_map_request(world: WorldState, settlement_id: UUID) -> LocalMapRequest
     if world.geography is None:
         raise ValueError("settlement local map requires world geography")
     region = next(
-        (candidate for candidate in world.geography.regions if candidate.id == settlement.region_id),
+        (
+            candidate
+            for candidate in world.geography.regions
+            if candidate.id == settlement.region_id
+        ),
         None,
     )
     if region is None:
