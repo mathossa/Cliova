@@ -4,6 +4,12 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from uuid import UUID
 
+from cliova.simulation.domains.economy.storage import (
+    DEFAULT_FOOD_STORAGE_CONFIG,
+    FoodStorageConfig,
+    adjust_aggregate_food_reserves,
+    balance_food_storage,
+)
 from cliova.simulation.domains.population import (
     FOOD_SECURITY,
     PopulationNeedTarget,
@@ -19,6 +25,7 @@ from cliova.simulation.types import (
     EventProposal,
     FoodProductionMethod,
     FoodProductionMethodState,
+    FoodReserveState,
     GeographyState,
     RegionalPopulationState,
     RegionState,
@@ -131,6 +138,7 @@ class ResourceOutcome:
     deficit: float
     shortage_severity: float
     food_production: tuple[FoodProductionMethodState, ...] = ()
+    food_reserves: FoodReserveState | None = None
 
 
 class EconomyDomain:
@@ -139,8 +147,14 @@ class EconomyDomain:
     name = "economy"
     phase = TickPhase.ECONOMY
 
-    def __init__(self, capability_modifier: CapabilityModifier | None = None) -> None:
+    def __init__(
+        self,
+        capability_modifier: CapabilityModifier | None = None,
+        *,
+        food_storage_config: FoodStorageConfig = DEFAULT_FOOD_STORAGE_CONFIG,
+    ) -> None:
         self._capability_modifier = capability_modifier or _neutral_capability_modifier
+        self._food_storage_config = food_storage_config
 
     def step(
         self,
@@ -148,7 +162,7 @@ class EconomyDomain:
         context: TickContext,
         rng: RandomSource,
     ) -> DomainResult:
-        del rng  # The first economy rules are deterministic without stochastic sampling.
+        del rng  # The economy rules are deterministic without stochastic sampling.
 
         if world.economy is None or not world.economy.regions:
             return DomainResult(
@@ -183,6 +197,7 @@ class EconomyDomain:
                         world=world,
                         region_id=regional_economy.region_id,
                         capability_modifier=self._capability_modifier,
+                        storage_config=self._food_storage_config,
                     )
                 else:
                     capability_modifier = self._capability_modifier(
@@ -223,6 +238,37 @@ class EconomyDomain:
                             cause_event_ids=causes,
                         )
                     )
+
+                storage_event = _significant_storage_event(
+                    current, outcome, self._food_storage_config
+                )
+                if storage_event:
+                    stockpile_change = next(
+                        (
+                            change
+                            for change in resource_changes
+                            if change.key == resource_change_key("food", "stockpile")
+                        ),
+                        None,
+                    )
+                    if stockpile_change is not None:
+                        reason = _storage_event_reason(region, outcome)
+                        events.append(
+                            EventProposal(
+                                kind="food-storage-change",
+                                reason=reason,
+                                subjects=(regional_economy.region_id,),
+                                cause_event_ids=causes,
+                                changes=(stockpile_change,),
+                            )
+                        )
+                        explanations.append(
+                            SimulationExplanation(
+                                source=self.name,
+                                message=reason,
+                                cause_event_ids=causes,
+                            )
+                        )
 
         return DomainResult(
             changes=tuple(changes),
@@ -285,6 +331,15 @@ class EconomyDomain:
         update: dict[str, object] = {field: value}
         if resource_kind == "food" and field == "production" and change.attributes:
             update["food_production"] = _food_production_from_attributes(change.attributes)
+        if resource_kind == "food" and field == "stockpile":
+            reserves = (
+                _food_reserves_from_attributes(change.attributes)
+                if change.attributes
+                else adjust_aggregate_food_reserves(current, new_stockpile=value)
+            )
+            if abs(reserves.total - value) > 1e-6:
+                raise ValueError("food reserve classes must sum to aggregate stockpile")
+            update["food_reserves"] = reserves
         resources[resource_index] = current.model_copy(update=update)
         regions[region_index] = regional_economy.model_copy(update={"resources": tuple(resources)})
         economy = EconomyDomainState(regions=tuple(regions))
@@ -380,6 +435,7 @@ def _calculate_food_outcome(
     world: WorldState,
     region_id: EntityId,
     capability_modifier: CapabilityModifier,
+    storage_config: FoodStorageConfig,
 ) -> ResourceOutcome:
     available_labour = _quantity(population.total * LABOUR_SHARE)
     opportunities = _food_method_opportunities(world, region_id, region)
@@ -411,12 +467,27 @@ def _calculate_food_outcome(
     production_capacity = _quantity(sum(state.labour_limited_output for state in method_states))
     production = _quantity(sum(state.output for state in method_states))
     demand = _quantity(population.total * FOOD_DEMAND_PER_CAPITA)
-    return _balance_resource(
+    preservation_modifier = capability_modifier(world, region_id, "food", "preservation")
+    if preservation_modifier <= 0.0:
+        raise ValueError("preservation capability modifier must be positive")
+    storage = balance_food_storage(
         current,
+        production=production,
+        demand=demand,
+        preservation_modifier=preservation_modifier,
+        config=storage_config,
+    )
+    return ResourceOutcome(
         production_capacity=production_capacity,
         production=production,
         demand=demand,
+        consumed=storage.consumed,
+        stockpile=storage.stockpile,
+        surplus=_quantity(max(0.0, production - demand)),
+        deficit=storage.deficit,
+        shortage_severity=storage.shortage_severity,
         food_production=tuple(method_states),
+        food_reserves=storage.reserves,
     )
 
 
@@ -535,7 +606,6 @@ def _balance_resource(
     production_capacity: float,
     production: float,
     demand: float,
-    food_production: tuple[FoodProductionMethodState, ...] = (),
 ) -> ResourceOutcome:
     available = _quantity(current.stockpile + production)
     consumed = _quantity(min(available, demand))
@@ -553,7 +623,6 @@ def _balance_resource(
         surplus=surplus,
         deficit=deficit,
         shortage_severity=min(1.0, shortage_severity),
-        food_production=food_production,
     )
 
 
@@ -583,13 +652,21 @@ def _outcome_changes(
             and field == "production"
             and current.food_production != outcome.food_production
         )
-        if not delta and not method_state_changed:
-            continue
-        attributes = (
-            _food_production_attributes(outcome.food_production)
-            if current.resource == "food" and field == "production"
-            else ()
+        reserve_state_changed = (
+            current.resource == "food"
+            and field == "stockpile"
+            and current.food_reserves != outcome.food_reserves
         )
+        if not delta and not method_state_changed and not reserve_state_changed:
+            continue
+        if current.resource == "food" and field == "production":
+            attributes = _food_production_attributes(outcome.food_production)
+        elif current.resource == "food" and field == "stockpile":
+            if outcome.food_reserves is None:
+                raise ValueError("food outcome requires explicit reserve state")
+            attributes = _food_reserve_attributes(outcome.food_reserves)
+        else:
+            attributes = ()
         changes.append(
             SimulationChange(
                 source="economy",
@@ -598,6 +675,8 @@ def _outcome_changes(
                 reason=(
                     "recalculated food production and method constraints"
                     if method_state_changed and field == "production"
+                    else "recalculated food reserve classes and storage losses"
+                    if reserve_state_changed and field == "stockpile"
                     else f"recalculated {current.resource} {field}"
                 ),
                 target=region_id,
@@ -662,6 +741,44 @@ def _food_production_from_attributes(
     return tuple(states)
 
 
+def _food_reserve_attributes(state: FoodReserveState) -> tuple[ChangeAttribute, ...]:
+    return tuple(
+        ChangeAttribute(key=f"food_reserve.{field}", value=float(getattr(state, field)))
+        for field in (
+            "perishable",
+            "durable",
+            "consumed_from_production",
+            "consumed_from_perishable",
+            "consumed_from_durable",
+            "preserved",
+            "perishable_spoilage",
+            "durable_spoilage",
+            "preservation_modifier",
+        )
+    )
+
+
+def _food_reserves_from_attributes(
+    attributes: tuple[ChangeAttribute, ...],
+) -> FoodReserveState:
+    values = {attribute.key: attribute.value for attribute in attributes}
+    fields = (
+        "perishable",
+        "durable",
+        "consumed_from_production",
+        "consumed_from_perishable",
+        "consumed_from_durable",
+        "preserved",
+        "perishable_spoilage",
+        "durable_spoilage",
+        "preservation_modifier",
+    )
+    missing = [field for field in fields if f"food_reserve.{field}" not in values]
+    if missing:
+        raise ValueError(f"food reserve change missing fields: {missing}")
+    return FoodReserveState(**{field: float(values[f"food_reserve.{field}"]) for field in fields})
+
+
 def _region_causes(context: TickContext, region_id: EntityId) -> tuple[UUID, ...]:
     return tuple(
         event.id
@@ -709,6 +826,28 @@ def _significant_event_kind(current: ResourceEconomyState, outcome: ResourceOutc
     return None
 
 
+def _significant_storage_event(
+    current: ResourceEconomyState,
+    outcome: ResourceOutcome,
+    config: FoodStorageConfig,
+) -> bool:
+    if current.resource != "food" or outcome.food_reserves is None or outcome.demand <= 0.0:
+        return False
+    previous = current.food_reserves or FoodReserveState()
+    current_loss = outcome.food_reserves.spoilage_loss / outcome.demand
+    previous_loss = previous.spoilage_loss / current.demand if current.demand > 0.0 else 0.0
+    current_preserved = outcome.food_reserves.preserved / outcome.demand
+    previous_preserved = previous.preserved / current.demand if current.demand > 0.0 else 0.0
+
+    def changed(now: float, before: float) -> bool:
+        return now >= config.significant_flow_ratio and (
+            before < config.significant_flow_ratio
+            or abs(now - before) >= config.significant_flow_change_ratio
+        )
+
+    return changed(current_loss, previous_loss) or changed(current_preserved, previous_preserved)
+
+
 def _event_reason(
     region: RegionState,
     current: ResourceEconomyState,
@@ -737,7 +876,26 @@ def _event_reason(
             for method in outcome.food_production
         )
         reason = f"{reason} Methods: {methods}."
+    if outcome.food_reserves is not None:
+        reason = (
+            f"{reason} Reserves: perishable={outcome.food_reserves.perishable:.3f}, "
+            f"durable={outcome.food_reserves.durable:.3f}, "
+            f"preserved={outcome.food_reserves.preserved:.3f}, "
+            f"spoilage={outcome.food_reserves.spoilage_loss:.3f}."
+        )
     return reason
+
+
+def _storage_event_reason(region: RegionState, outcome: ResourceOutcome) -> str:
+    assert outcome.food_reserves is not None
+    reserves = outcome.food_reserves
+    return (
+        f"Food storage changed materially in {region.key}: preserved={reserves.preserved:.3f}, "
+        f"perishable_spoilage={reserves.perishable_spoilage:.3f}, "
+        f"durable_spoilage={reserves.durable_spoilage:.3f}, "
+        f"perishable_reserve={reserves.perishable:.3f}, durable_reserve={reserves.durable:.3f}, "
+        f"preservation_modifier={reserves.preservation_modifier:.3f}."
+    )
 
 
 def _quantity(value: float) -> float:
