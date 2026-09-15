@@ -9,7 +9,13 @@ from typing import Protocol
 from uuid import UUID, uuid5
 
 from cliova.application.persistence import QueuedSimulationInput
-from cliova.simulation.types import EntityId, SimulationEvent, SimulationInput, TickResult, WorldState
+from cliova.simulation.types import (
+    EntityId,
+    SimulationEvent,
+    SimulationInput,
+    TickResult,
+    WorldState,
+)
 
 
 class AttentionPriority(StrEnum):
@@ -123,8 +129,14 @@ class FoodShortageAttentionProducer:
             )
             if region is None:
                 continue
-            targets: tuple[EntityId | None, ...] = tuple(governance_by_region.get(region, ())) or (None,)
-            category = "food-shortage" if event.kind == "resource-shortage" else "food-recovery"
+            targets: tuple[EntityId | None, ...] = (
+                tuple(governance_by_region.get(region, ())) or (None,)
+            )
+            category = (
+                "food-shortage"
+                if event.kind == "resource-shortage"
+                else "food-recovery"
+            )
             for target in targets:
                 attention.append(
                     AttentionItem(
@@ -149,7 +161,10 @@ class FoodShortageAttentionProducer:
                 decisions.append(
                     DecisionOpportunity(
                         id=_decision_id(
-                            world.id.value, event.id, "food-shortage-priority", target
+                            world.id.value,
+                            event.id,
+                            "food-shortage-priority",
+                            target,
                         ),
                         world_id=world.id.value,
                         target_subject=target,
@@ -177,9 +192,14 @@ class FoodShortageAttentionProducer:
 
 
 def _is_food_availability_event(event: SimulationEvent) -> bool:
-    if event.source != "economy" or event.kind not in {"resource-shortage", "resource-recovery"}:
+    if event.source != "economy" or event.kind not in {
+        "resource-shortage",
+        "resource-recovery",
+    }:
         return False
-    return any(change.key == "economy.food.shortage_severity" for change in event.changes)
+    return any(
+        change.key == "economy.food.shortage_severity" for change in event.changes
+    )
 
 
 def _attention_id(
@@ -191,7 +211,12 @@ def _attention_id(
     return uuid5(world_id, _identity_material("attention", event_id, category, target))
 
 
-def _decision_id(world_id: UUID, event_id: UUID, category: str, target: EntityId) -> UUID:
+def _decision_id(
+    world_id: UUID,
+    event_id: UUID,
+    category: str,
+    target: EntityId,
+) -> UUID:
     return uuid5(world_id, _identity_material("decision", event_id, category, target))
 
 
