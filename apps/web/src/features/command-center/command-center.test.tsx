@@ -126,12 +126,13 @@ const bundle: CommandCenterBundle = { summary, regions, history, directives };
 
 const noOpActions = {
   selectWorld: async () => {},
+  createWorld: async () => {},
   refresh: async () => {},
   submitDirective: async () => {},
   advanceDevelopmentTick: async () => {},
 };
 
-test("Command Center renders authoritative summary and history without demo fallback", () => {
+test("Command Center renders authoritative summary and human-readable history without demo fallback", () => {
   const world = toWorldSnapshot(bundle);
   const html = renderToStaticMarkup(
     <CommandCenter
@@ -143,13 +144,29 @@ test("Command Center renders authoritative summary and history without demo fall
 
   assert.match(html, /1207/);
   assert.match(html, /4200|4,200/);
-  assert.match(html, /Food Demand Exceeded Current Production|Food demand exceeded current production/);
+  assert.match(html, /Northreach Society is experiencing a food shortage/);
+  assert.match(html, /Food demand exceeded current production/);
+  assert.match(html, /Technical details/);
   assert.match(html, new RegExp(EVENT_ID));
   assert.match(html, /1 causal link/);
+  assert.match(html, /Development operator/);
+  assert.match(html, /no society assignment/);
+  assert.match(html, /\+ New world/);
   assert.doesNotMatch(html, /Prototype World/);
   assert.doesNotMatch(html, /2142/);
   assert.doesNotMatch(html, /2\.43M/);
   assert.doesNotMatch(html, /Showing presentation placeholders/);
+});
+
+test("presentation derives readable society and pressure labels from public region data", () => {
+  const world = toWorldSnapshot(bundle);
+
+  assert.equal(world.societies[0]?.label, "Northreach Society");
+  assert.equal(world.societies[0]?.regionLabel, "Northreach");
+  assert.equal(world.pendingDirectives[0]?.targetLabel, "Northreach Society");
+  assert.equal(world.pressures[0]?.regionLabel, "Northreach");
+  assert.equal(world.feed[0]?.text, "Northreach Society is experiencing a food shortage.");
+  assert.equal(world.feed[0]?.technicalDetail, "Food demand exceeded current production.");
 });
 
 test("loading, empty and backend failure states are explicit", () => {
@@ -165,14 +182,16 @@ test("loading, empty and backend failure states are explicit", () => {
   assert.doesNotMatch(failed, /Prototype World/);
 });
 
-test("directive panel renders pending authoritative queue state", () => {
+test("directive panel uses controlled actions and readable targets", () => {
   const world = toWorldSnapshot(bundle);
   const html = renderToStaticMarkup(<DirectivesPanel world={world} onSubmit={async () => {}} />);
 
   assert.match(html, /Strengthen food reserves/);
-  assert.match(html, /queued/);
-  assert.match(html, /command-center/);
-  assert.match(html, /normal/);
+  assert.match(html, /Northreach Society/);
+  assert.match(html, /Development operator/);
+  assert.match(html, /Free text is not interpreted as simulation input/);
+  assert.match(html, /Normal/);
+  assert.doesNotMatch(html, /Author<input/);
 });
 
 test("directive submission and manual tick revalidate lifecycle state", async () => {
