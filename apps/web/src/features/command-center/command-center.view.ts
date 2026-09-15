@@ -111,7 +111,7 @@ function toSocietyView(society: SocietySummary, regions: RegionView[]): SocietyV
 function toRegionView(region: RegionStatusResponse["regions"][number]): RegionView {
   return {
     id: region.id,
-    label: formatLabel(region.key),
+    label: regionDisplayLabel(region.key),
     terrain: formatLabel(region.terrain),
     biome: formatLabel(region.biome),
     population: formatInteger(region.population),
@@ -120,6 +120,12 @@ function toRegionView(region: RegionStatusResponse["regions"][number]): RegionVi
     climatePressure: formatNumber(region.climate_pressure),
     food: toFoodView(region.food),
   };
+}
+
+function regionDisplayLabel(key: string): string {
+  const generated = /^worldengine-v\d+:(\d+)$/.exec(key);
+  if (generated) return `Region ${Number(generated[1]) + 1}`;
+  return formatLabel(key);
 }
 
 function toHistoryFeedItem(
