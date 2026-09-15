@@ -63,3 +63,19 @@ INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
 CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
+
+## Settlemaker 3.0.1
+
+Upstream: `barrulus/settlemaker` release `v3.0.1`, commit `809babc9aaef981d726b025068ed4637741f2230`.
+
+Copyright (C) 2025-2026 barrulus
+
+SPDX-License-Identifier: GPL-3.0-only
+
+Settlemaker is redistributed as an npm dependency under GNU GPL version 3 only. Its generation core is a TypeScript reimplementation/derivative of watabou's `TownGeneratorOS` (Haxe), also distributed under GNU GPL version 3 without an explicit "or later" grant. Cliova does not copy Settlemaker or TownGeneratorOS implementation files; issue #61 calls Settlemaker's public generation API and adapts its SVG/GeoJSON output at the presentation boundary.
+
+The npm package carries its complete `LICENSE` and `NOTICE`, including upstream TownGeneratorOS attribution and notices for the water-geometry dependencies `polygon-clipping` (MIT), `splaytree` (MIT), and `robust-predicates` (Unlicense/public-domain dedication). Those notices remain applicable to the packaged dependencies.
+
+Settlemaker's SVG symbol library is separately licensed CC-BY-4.0 with its documented rendered-output exception. Cliova does not copy or redistribute that symbol library as project source; any assets present inside the installed dependency remain governed by Settlemaker's bundled symbol license and credits.
+
+TownGeneratorOS upstream: `watabou/TownGeneratorOS`, inspected at commit `7fbc87a9398cc508af24de93f79cf2ad027f352b`.
