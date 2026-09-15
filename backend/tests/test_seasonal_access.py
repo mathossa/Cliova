@@ -235,9 +235,7 @@ def test_external_access_respects_authoritative_sustainable_yield_limit() -> Non
     source = next(region for region in result.geography.regions if region.id == access.region_id)
     core_pastoral = _pastoral(result, ids["core"].id)
     source_pastoral = _pastoral(result, access.region_id)
-    pastoral_rule = next(
-        rule for rule in FOOD_PRODUCTION_RULES if rule.method == "pastoralism"
-    )
+    pastoral_rule = next(rule for rule in FOOD_PRODUCTION_RULES if rule.method == "pastoralism")
 
     assert core_pastoral.output <= core_pastoral.sustainable_limit + 1e-6
     assert source_pastoral.output <= source_pastoral.sustainable_limit + 1e-6
