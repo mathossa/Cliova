@@ -5,7 +5,10 @@ import pytest
 
 from cliova.application.development import create_development_world
 from cliova.infrastructure.persistence.migrations import apply_migrations
-from cliova.infrastructure.persistence.worlds import PostgresWorldRepository, WorldAlreadyExistsError
+from cliova.infrastructure.persistence.worlds import (
+    PostgresWorldRepository,
+    WorldAlreadyExistsError,
+)
 
 pytestmark = pytest.mark.integration
 
