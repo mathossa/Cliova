@@ -51,6 +51,14 @@ CAPABILITIES = (
         effect=CapabilityEffect(resource="food", production_method="pastoralism", max_bonus=0.0),
     ),
     CapabilityDefinition(
+        key="food_preservation",
+        requirements=(ExperienceRequirement(track="food", minimum=1.0),),
+        activation_threshold=0.2,
+        practice_track="food",
+        pressure_key="food",
+        effect=CapabilityEffect(resource="food", production_method="preservation", max_bonus=0.75),
+    ),
+    CapabilityDefinition(
         key="ore_extraction",
         requirements=(
             ResourcePotentialRequirement(resource="metal_ores", min_potential=0.25),
