@@ -21,6 +21,7 @@ export type {
   DirectiveSubmissionRequest,
   HistoryEvent,
   HistoryResponse,
+  ManualTickResponse,
   PressureStatus,
   QueuedDirective,
   RegionStatus,
