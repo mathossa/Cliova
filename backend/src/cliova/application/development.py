@@ -4,7 +4,12 @@ from cliova.simulation.domains.directives import DirectiveAwareEconomyDomain, Di
 from cliova.simulation.domains.economy import initialize_economy
 from cliova.simulation.domains.knowledge import KnowledgeDomain, initialize_knowledge
 from cliova.simulation.domains.politics import GovernanceDomain, initialize_governance
-from cliova.simulation.domains.population import PopulationDomain, initialize_population
+from cliova.simulation.domains.population import (
+    PopulationDomain,
+    SeasonalSubsistenceAccessDomain,
+    initialize_population,
+    initialize_society_region_relationships,
+)
 from cliova.simulation.domains.scenarios import ScenarioDomain
 from cliova.simulation.domains.world.fixtures import create_starter_world
 from cliova.simulation.engine import SimulationEngine
@@ -12,6 +17,7 @@ from cliova.simulation.types import (
     GovernanceState,
     InstitutionProfile,
     SocietyKnowledgeState,
+    SocietyRegionRelationshipState,
     WorldState,
     entity_id,
 )
@@ -45,9 +51,18 @@ def create_development_world(*, seed: int, world_key: str) -> WorldState:
         internal_resistance=0.1,
     )
     world = initialize_governance(world, states=(governance,))
-    return initialize_knowledge(
+    world = initialize_knowledge(
         world,
         societies=(SocietyKnowledgeState(society_id=society_id, region_ids=(region_id,)),),
+    )
+    return initialize_society_region_relationships(
+        world,
+        relationships=(
+            SocietyRegionRelationshipState(
+                society_id=society_id,
+                core_region_id=region_id,
+            ),
+        ),
     )
 
 
@@ -58,6 +73,7 @@ def create_simulation_engine() -> SimulationEngine:
     return SimulationEngine(
         (
             PopulationDomain(),
+            SeasonalSubsistenceAccessDomain(),
             DirectiveAwareEconomyDomain(capability_modifier=knowledge.capability_modifier),
             GovernanceDomain(),
             DirectiveDomain(),

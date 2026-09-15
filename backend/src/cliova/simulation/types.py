@@ -11,6 +11,7 @@ NonNegativeFloat = Annotated[float, Field(ge=0.0)]
 NonEmptyString = Annotated[str, Field(strict=True, min_length=1)]
 UnitInterval = Annotated[float, Field(ge=0.0, le=1.0)]
 PositiveFloat = Annotated[float, Field(gt=0.0)]
+PositiveUnitInterval = Annotated[float, Field(gt=0.0, le=1.0)]
 EntityKind = Literal["world", "region", "society", "polity", "individual"]
 TerrainKind = Literal["plain", "plateau", "basin", "highland", "forest", "wetland", "coast"]
 BiomeKind = Literal["temperate", "semi_arid", "arid", "boreal", "tropical", "alpine"]
@@ -214,11 +215,49 @@ class PopulationDomainState(SimulationModel):
         raise KeyError(region_id)
 
 
+class SeasonalSubsistenceAccessState(SimulationModel):
+    """Temporary method-scoped use of another region; it is not residence or control."""
+
+    region_id: EntityId
+    production_method: FoodProductionMethod
+    access_share: PositiveUnitInterval
+
+    @model_validator(mode="after")
+    def validate_region(self) -> "SeasonalSubsistenceAccessState":
+        if self.region_id.kind != "region":
+            raise ValueError("seasonal subsistence access must reference a region")
+        return self
+
+
+class SocietyRegionRelationshipState(SimulationModel):
+    """A society's permanent core association plus aggregate temporary subsistence access."""
+
+    society_id: EntityId
+    core_region_id: EntityId
+    temporary_access: tuple[SeasonalSubsistenceAccessState, ...] = ()
+
+    @model_validator(mode="after")
+    def validate_relationship(self) -> "SocietyRegionRelationshipState":
+        if self.society_id.kind != "society":
+            raise ValueError("society-region relationship requires a society ID")
+        if self.core_region_id.kind != "region":
+            raise ValueError("society core association must reference a region")
+        identities = [
+            (access.region_id, access.production_method) for access in self.temporary_access
+        ]
+        if len(identities) != len(set(identities)):
+            raise ValueError("temporary subsistence access entries must be unique")
+        if any(access.region_id == self.core_region_id for access in self.temporary_access):
+            raise ValueError("temporary access cannot duplicate the society core region")
+        return self
+
+
 class FoodProductionMethodState(SimulationModel):
     """Explain one method's labour, capability and sustainable-yield constraints."""
 
     method: FoodProductionMethod
     regional_potential: UnitInterval
+    external_potential: NonNegativeFloat = 0.0
     allocated_labour: NonNegativeFloat
     capability_modifier: PositiveFloat = 1.0
     labour_limited_output: NonNegativeFloat
@@ -490,6 +529,7 @@ class WorldState(SimulationModel):
     population: PopulationDomainState | None = None
     economy: EconomyDomainState | None = None
     knowledge: KnowledgeDomainState | None = None
+    society_regions: tuple[SocietyRegionRelationshipState, ...] = ()
     governance: tuple[GovernanceState, ...] = ()
     directives: tuple[DirectiveState, ...] = ()
     pressures: tuple[ScenarioPressureState, ...] = ()
@@ -521,6 +561,33 @@ class WorldState(SimulationModel):
                 for region in society.region_ids
             ):
                 raise ValueError("knowledge participation must reference world geography")
+        return self
+
+    @model_validator(mode="after")
+    def validate_society_regions(self) -> "WorldState":
+        society_ids = [state.society_id for state in self.society_regions]
+        core_region_ids = [state.core_region_id for state in self.society_regions]
+        if len(society_ids) != len(set(society_ids)):
+            raise ValueError("society-region relationship society IDs must be unique")
+        if len(core_region_ids) != len(set(core_region_ids)):
+            raise ValueError("society core regions must be unique while economy is region-keyed")
+        if not self.society_regions:
+            return self
+        if self.geography is None:
+            raise ValueError("society-region relationships require world geography")
+        region_ids = {region.id for region in self.geography.regions}
+        if any(state.core_region_id not in region_ids for state in self.society_regions):
+            raise ValueError("society core regions must reference world geography")
+        if any(
+            access.region_id not in region_ids
+            for state in self.society_regions
+            for access in state.temporary_access
+        ):
+            raise ValueError("temporary subsistence access must reference world geography")
+        if self.knowledge is not None:
+            knowledge_societies = {state.society_id for state in self.knowledge.societies}
+            if any(society_id not in knowledge_societies for society_id in society_ids):
+                raise ValueError("society-region relationships must reference known societies")
         return self
 
     @model_validator(mode="after")
@@ -581,7 +648,6 @@ class WorldState(SimulationModel):
         )
         world_id = EntityId(kind="world", value=uuid5(NAMESPACE_URL, name))
 
-        # Import lazily so the world domain can depend on shared simulation primitives.
         from cliova.simulation.domains.world.generation import generate_geography
 
         return cls(

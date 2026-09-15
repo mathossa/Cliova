@@ -11,6 +11,8 @@ from cliova.simulation.domains.knowledge.types import (
 LEARNING_RATE = 0.1
 PRACTICE_SATURATION = 5.0
 DEMAND_PRESSURE = 0.25
+MOBILE_PASTORALISM_KEY = "mobile_pastoralism"
+MOBILE_PASTORALISM_ACTIVATION_THRESHOLD = 0.2
 
 CAPABILITIES = (
     CapabilityDefinition(
@@ -35,6 +37,18 @@ CAPABILITIES = (
         practice_track="cultivation",
         pressure_key="food",
         effect=CapabilityEffect(resource="food", production_method="cultivation", max_bonus=0.15),
+    ),
+    CapabilityDefinition(
+        key=MOBILE_PASTORALISM_KEY,
+        requirements=(
+            ResourcePotentialRequirement(resource="grazing", min_potential=0.1),
+            ExperienceRequirement(track="pastoralism", minimum=1.0),
+        ),
+        activation_threshold=MOBILE_PASTORALISM_ACTIVATION_THRESHOLD,
+        practice_track="pastoralism",
+        pressure_key="food",
+        # This capability gates access rather than changing #48's pastoral productivity formula.
+        effect=CapabilityEffect(resource="food", production_method="pastoralism", max_bonus=0.0),
     ),
     CapabilityDefinition(
         key="food_preservation",
