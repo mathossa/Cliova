@@ -12,12 +12,12 @@ from cliova.simulation.types import (
     DirectiveIntent,
     DirectivePriority,
     DirectiveState,
+    DirectiveSubmission,
     DomainResult,
     EntityId,
     EventProposal,
     ResourceKind,
     SimulationChange,
-    SimulationEvent,
     SimulationExplanation,
     SimulationInput,
     WorldState,
@@ -51,7 +51,7 @@ def directive_input(
         kind="directive-submitted",
         reason=f"Requested {intent} with {priority} priority",
         subjects=(target_subject,),
-        directive={"intent": intent, "priority": priority},
+        directive=DirectiveSubmission(intent=intent, priority=priority),
     )
 
 
@@ -315,7 +315,12 @@ def _advance_directive(
             f"{directive.progress:.3f} to {progress:.3f}."
         )
 
-    return directive.model_copy(update={"status": status, "progress": progress}), reason, event_kind, causes
+    return (
+        directive.model_copy(update={"status": status, "progress": progress}),
+        reason,
+        event_kind,
+        causes,
+    )
 
 
 def _food_economic_feasibility(world: WorldState, region_id: EntityId) -> float:
