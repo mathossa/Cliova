@@ -165,9 +165,7 @@ def get_history(
 
 
 @router.get("/worlds/{world_id}/attention-items", response_model=AttentionItemsResponse)
-def get_attention_items(
-    world_id: UUID, repository: RepositoryDependency
-) -> AttentionItemsResponse:
+def get_attention_items(world_id: UUID, repository: RepositoryDependency) -> AttentionItemsResponse:
     return AttentionItemsResponse(
         world_id=world_id,
         items=tuple(attention_item(item) for item in repository.list_attention_items(world_id)),
