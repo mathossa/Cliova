@@ -7,7 +7,7 @@ import {
   type DirectivePriority,
   type DirectiveSubmissionRequest,
 } from "../../lib/api";
-import type { WorldSnapshot } from "./command-center.types";
+import type { DecisionOpportunityView, WorldSnapshot } from "./command-center.types";
 
 const DEVELOPMENT_AUTHOR = "development-operator";
 const priorities: DirectivePriority[] = ["low", "normal", "high"];
@@ -34,11 +34,34 @@ export function DirectivesPanel({
   const [intent, setIntent] = useState<DirectiveIntent>(directiveActions[0]!.intent);
   const [priority, setPriority] = useState<DirectivePriority>("normal");
   const [submitting, setSubmitting] = useState(false);
+  const [respondingId, setRespondingId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const selectedTarget = validTargets.find((society) => society.id === targetId) ?? validTargets[0] ?? null;
   const selectedAction = directiveActions.find((action) => action.intent === intent) ?? directiveActions[0]!;
+
+  async function respond(opportunity: DecisionOpportunityView) {
+    setRespondingId(opportunity.id);
+    setFeedback(null);
+    setError(null);
+    try {
+      await onSubmit({
+        author: DEVELOPMENT_AUTHOR,
+        target: { kind: opportunity.targetKind, id: opportunity.targetId },
+        intent: opportunity.responseIntent,
+        priority: "normal",
+        decision_opportunity_id: opportunity.id,
+      });
+      setFeedback(
+        `Response queued for a future tick. The world was not paused while this decision was open.`,
+      );
+    } catch (submissionError) {
+      setError(describeApiError(submissionError));
+    } finally {
+      setRespondingId(null);
+    }
+  }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -67,6 +90,64 @@ export function DirectivesPanel({
 
   return (
     <div className="directive-workspace">
+      <section className="panel directive-list-panel" aria-label="Attention and decision opportunities">
+        <div className="panel-heading compact">
+          <div>
+            <span className="eyebrow">Non-blocking attention</span>
+            <h2>Things to notice</h2>
+          </div>
+          <span className="live-badge">world continues</span>
+        </div>
+        <p className="directive-context">
+          These items never pause the shared world. A response is ordinary future intent and only becomes eligible at a later tick boundary.
+        </p>
+        <div className="directive-groups">
+          <div>
+            <h3>Open decisions</h3>
+            {world.decisionOpportunities.length === 0 ? (
+              <p className="empty-copy">No open decision opportunities.</p>
+            ) : (
+              <ul className="live-list">
+                {world.decisionOpportunities.map((opportunity) => (
+                  <li key={opportunity.id}>
+                    <strong>{opportunity.category}</strong>
+                    <span>
+                      {opportunity.targetLabel} · earliest effect tick {opportunity.earliestEffectTick}
+                      {opportunity.expiresAtTick === null ? " · no expiry" : ` · expires tick ${opportunity.expiresAtTick}`}
+                    </span>
+                    <small>{opportunity.context}</small>
+                    <small>Without response: {opportunity.defaultBehavior}</small>
+                    <button
+                      type="button"
+                      disabled={respondingId !== null}
+                      onClick={() => void respond(opportunity)}
+                    >
+                      {respondingId === opportunity.id ? "Queuing…" : "Queue suggested directive"}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          <div>
+            <h3>Attention items</h3>
+            {world.attentionItems.length === 0 ? (
+              <p className="empty-copy">Nothing important needs attention right now.</p>
+            ) : (
+              <ul className="live-list">
+                {world.attentionItems.slice(0, 8).map((item) => (
+                  <li key={item.id}>
+                    <strong>{item.category}</strong>
+                    <span>{capitalize(item.priority)} · {item.targetLabel} · tick {item.createdTick}</span>
+                    <small>{item.context}</small>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      </section>
+
       <section className="panel directive-submit-panel">
         <div className="panel-heading compact">
           <div>

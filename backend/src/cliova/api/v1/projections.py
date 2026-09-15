@@ -3,7 +3,9 @@
 from typing import Literal, cast
 
 from cliova.api.v1.models import (
+    AttentionItemDto,
     AuthoritativeDirective,
+    DecisionOpportunityDto,
     DirectiveTarget,
     EntityKindDto,
     EntityRef,
@@ -18,6 +20,7 @@ from cliova.api.v1.models import (
     WorldListItem,
     WorldSummary,
 )
+from cliova.application.attention import AttentionItem, DecisionOpportunity
 from cliova.application.persistence import QueuedSimulationInput
 from cliova.simulation.types import EntityId, SimulationEvent, WorldState
 
@@ -234,4 +237,42 @@ def authoritative_directives(world: WorldState) -> tuple[AuthoritativeDirective,
             progress=directive.progress,
         )
         for directive in sorted(world.directives, key=lambda item: item.id.hex)
+    )
+
+
+def attention_item(item: AttentionItem) -> AttentionItemDto:
+    return AttentionItemDto(
+        id=item.id,
+        target=entity_ref(item.target_subject) if item.target_subject is not None else None,
+        created_tick=item.created_tick,
+        created_year=item.created_year,
+        category=item.category,
+        priority=item.priority.value,
+        context=item.context,
+        related_event_ids=item.related_event_ids,
+        related_subjects=tuple(entity_ref(subject) for subject in item.related_subjects),
+    )
+
+
+def decision_opportunity(opportunity: DecisionOpportunity) -> DecisionOpportunityDto:
+    return DecisionOpportunityDto(
+        id=opportunity.id,
+        target=DirectiveTarget(
+            kind=cast(Literal["society", "polity"], opportunity.target_subject.kind),
+            id=opportunity.target_subject.value,
+        ),
+        created_tick=opportunity.created_tick,
+        created_year=opportunity.created_year,
+        category=opportunity.category,
+        context=opportunity.context,
+        related_event_ids=opportunity.related_event_ids,
+        related_subjects=tuple(entity_ref(subject) for subject in opportunity.related_subjects),
+        earliest_effect_tick=opportunity.earliest_effect_tick,
+        expires_at_tick=opportunity.expires_at_tick,
+        default_behavior=opportunity.default_behavior,
+        response_intent=cast(Literal["strengthen_food_reserves"], opportunity.response_intent),
+        status=opportunity.status.value,
+        response_queue_id=opportunity.response_queue_id,
+        response_submitted_tick=opportunity.response_submitted_tick,
+        response_directive_id=opportunity.response_directive_id,
     )
