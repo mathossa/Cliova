@@ -15,6 +15,10 @@ export type DirectiveStatus =
 export type PressureMilestone = "emerging" | "elevated" | "crisis" | "recovering" | "resolved";
 export type AttentionPriority = "informational" | "important" | "urgent";
 export type DecisionOpportunityStatus = "open" | "responded" | "expired";
+export type SettlementArchetype = "permanent" | "seasonal_camp" | "temporary_camp";
+export type SettlementStatus = "active" | "dormant" | "abandoned" | "destroyed";
+export type StructureStatus = "active" | "damaged" | "destroyed";
+export type LocalMapRenderer = "settlemaker" | "cliova_camp";
 
 export type EntityRef = {
   kind: EntityKind;
@@ -73,6 +77,69 @@ export type RegionStatus = {
   population: number | null;
   food: FoodStatus;
   pressures: PressureStatus[];
+};
+
+export type SettlementSummary = {
+  id: string;
+  key: string;
+  name: string;
+  region_id: string;
+  associated_subject: EntityRef | null;
+  established_year: number;
+  population_estimate: number;
+  archetype: SettlementArchetype;
+  status: SettlementStatus;
+};
+
+export type StructureProjection = {
+  id: string;
+  key: string;
+  definition_id: string;
+  display_name: string;
+  established_year: number;
+  status: StructureStatus;
+};
+
+export type SettlementListResponse = {
+  world_id: string;
+  tick: number;
+  settlements: SettlementSummary[];
+};
+
+export type SettlementDetailResponse = {
+  world_id: string;
+  tick: number;
+  settlement: SettlementSummary;
+  structures: StructureProjection[];
+};
+
+export type LocalMapPhysicalContext = {
+  terrain: string;
+  biome: string;
+  surface: string;
+  water_access: number;
+  coast_fraction: number;
+  mean_elevation: number;
+  region_centroid_x: number | null;
+  region_centroid_y: number | null;
+  world_extent_width: number | null;
+  world_extent_height: number | null;
+};
+
+export type LocalMapRequest = {
+  contract_version: "v1";
+  world_id: string;
+  settlement_id: string;
+  layout_seed: number;
+  generation_version: string;
+  render_version: string;
+  renderer: LocalMapRenderer;
+  renderer_version: string;
+  state_fingerprint: string;
+  settlement: SettlementSummary;
+  physical_context: LocalMapPhysicalContext;
+  authoritative_structures: StructureProjection[];
+  visual_style_key: string | null;
 };
 
 export type WorldListItem = {

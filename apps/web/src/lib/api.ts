@@ -6,9 +6,12 @@ import type {
   DirectiveListResponse,
   DirectiveSubmissionRequest,
   HistoryResponse,
+  LocalMapRequest,
   ManualTickResponse,
   QueuedDirective,
   RegionStatusResponse,
+  SettlementDetailResponse,
+  SettlementListResponse,
   WorldListResponse,
   WorldSummary,
 } from "../../../../packages/contracts/v1";
@@ -30,12 +33,22 @@ export type {
   DirectiveSubmissionRequest,
   HistoryEvent,
   HistoryResponse,
+  LocalMapPhysicalContext,
+  LocalMapRenderer,
+  LocalMapRequest,
   ManualTickResponse,
   PressureStatus,
   QueuedDirective,
   RegionStatus,
   RegionStatusResponse,
+  SettlementArchetype,
+  SettlementDetailResponse,
+  SettlementListResponse,
+  SettlementStatus,
+  SettlementSummary,
   SocietySummary,
+  StructureProjection,
+  StructureStatus,
   WorldListItem,
   WorldListResponse,
   WorldSummary,
@@ -53,6 +66,9 @@ export interface CliovaApi {
   createDevelopmentWorld(request: CreateDevelopmentWorldRequest): Promise<WorldSummary>;
   getWorld(worldId: string): Promise<WorldSummary>;
   getRegions(worldId: string): Promise<RegionStatusResponse>;
+  getSettlements(worldId: string): Promise<SettlementListResponse>;
+  getSettlement(worldId: string, settlementId: string): Promise<SettlementDetailResponse>;
+  getSettlementMap(worldId: string, settlementId: string): Promise<LocalMapRequest>;
   getHistory(worldId: string, query?: HistoryQuery): Promise<HistoryResponse>;
   getDirectives(worldId: string): Promise<DirectiveListResponse>;
   getAttentionItems(worldId: string): Promise<AttentionItemsResponse>;
@@ -108,6 +124,22 @@ export class HttpCliovaApiClient implements CliovaApi {
 
   getRegions(worldId: string): Promise<RegionStatusResponse> {
     return this.request(`/api/v1/worlds/${encodeURIComponent(worldId)}/regions`);
+  }
+
+  getSettlements(worldId: string): Promise<SettlementListResponse> {
+    return this.request(`/api/v1/worlds/${encodeURIComponent(worldId)}/settlements`);
+  }
+
+  getSettlement(worldId: string, settlementId: string): Promise<SettlementDetailResponse> {
+    return this.request(
+      `/api/v1/worlds/${encodeURIComponent(worldId)}/settlements/${encodeURIComponent(settlementId)}`,
+    );
+  }
+
+  getSettlementMap(worldId: string, settlementId: string): Promise<LocalMapRequest> {
+    return this.request(
+      `/api/v1/worlds/${encodeURIComponent(worldId)}/settlements/${encodeURIComponent(settlementId)}/map`,
+    );
   }
 
   getHistory(worldId: string, query: HistoryQuery = {}): Promise<HistoryResponse> {

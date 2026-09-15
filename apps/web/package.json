@@ -9,12 +9,13 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "next typegen && tsc --noEmit",
-    "test": "node -e \"require('fs').rmSync('.test-dist',{recursive:true,force:true})\" && tsc -p tsconfig.test.json && node -e \"require('fs').writeFileSync('.test-dist/package.json','{\\\"type\\\":\\\"commonjs\\\"}')\" && node --test .test-dist/apps/web/src/lib/api.test.js .test-dist/apps/web/src/features/command-center/command-center.test.js && node -e \"require('fs').rmSync('.test-dist',{recursive:true,force:true})\""
+    "test": "node -e \"require('fs').rmSync('.test-dist',{recursive:true,force:true})\" && tsc -p tsconfig.test.json && node -e \"require('fs').writeFileSync('.test-dist/package.json','{\\\"type\\\":\\\"commonjs\\\"}')\" && node --test .test-dist/apps/web/src/lib/api.test.js .test-dist/apps/web/src/features/command-center/command-center.test.js && node -e \"require('fs').rmSync('.test-dist',{recursive:true,force:true})\" && node --test src/features/local-map/local-map-generator.node.test.mts"
   },
   "dependencies": {
     "next": "16.3.4",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "settlemaker": "3.0.1"
   },
   "devDependencies": {
     "@types/node": "^20",
