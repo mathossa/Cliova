@@ -153,9 +153,7 @@ def create_starter_world(*, seed: int = 0, world_key: str = "starter-v1") -> Wor
     return WorldState(
         id=world_id,
         seed=seed,
-        metadata=WorldMetadata(
-            schema_version=1, simulation_version=1, rng_algorithm=RNG_ALGORITHM
-        ),
+        metadata=WorldMetadata(schema_version=1, simulation_version=1, rng_algorithm=RNG_ALGORITHM),
         time=SimulationTime(),
         geography=starter_geography(world_id),
     )
