@@ -37,17 +37,13 @@ def _run_ring(run: RasterRun, *, height: int) -> tuple[tuple[float, float], ...]
     )
 
 
-def _region_geometry(
-    geometry: RegionPresentationGeometry, *, height: int
-) -> MapMultiPolygon:
+def _region_geometry(geometry: RegionPresentationGeometry, *, height: int) -> MapMultiPolygon:
     return MapMultiPolygon(
         coordinates=tuple(((_run_ring(run, height=height)),) for run in geometry.runs)
     )
 
 
-def _centroid(
-    geometry: RegionPresentationGeometry, *, height: int
-) -> tuple[float, float]:
+def _centroid(geometry: RegionPresentationGeometry, *, height: int) -> tuple[float, float]:
     return (
         round(geometry.centroid_x + 0.5, 6),
         round(height - geometry.centroid_y - 0.5, 6),
@@ -182,9 +178,7 @@ def world_map_projection(world: WorldState) -> WorldMapResponse:
         render_version=MAP_RENDER_VERSION,
         extent_width=presentation.width,
         extent_height=presentation.height,
-        base_map_url=(
-            f"/api/v1/worlds/{world.id.value}/map/base.svg?v={MAP_RENDER_VERSION}"
-        ),
+        base_map_url=(f"/api/v1/worlds/{world.id.value}/map/base.svg?v={MAP_RENDER_VERSION}"),
         regions=tuple(regions),
         settlements=tuple(settlements),
     )
