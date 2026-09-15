@@ -316,6 +316,14 @@ function TerminalWorkspace({
   return (
     <div className="terminal-workspace">
       <section className="terminal-console panel" aria-label="Read-only terminal">
+        <div className="console-history" role="log" aria-label="Command responses">
+          {terminalLines.map((line, index) => (
+            <div key={`${index}-${line}`} className={line.startsWith(">") ? "console-command" : "console-response"}>
+              {line}
+            </div>
+          ))}
+        </div>
+        <small>Read-only inspection only. Simulation inputs belong in <code>Directives</code>.</small>
         <form onSubmit={submitCommand}>
           <span aria-hidden="true">›</span>
           <input
@@ -326,14 +334,6 @@ function TerminalWorkspace({
           />
           <button type="submit">Run</button>
         </form>
-        <div className="console-history" role="log" aria-label="Command responses">
-          {terminalLines.map((line, index) => (
-            <div key={`${index}-${line}`} className={line.startsWith(">") ? "console-command" : "console-response"}>
-              {line}
-            </div>
-          ))}
-        </div>
-        <small>Read-only inspection only. Simulation inputs belong in <code>Directives</code>.</small>
       </section>
       <RegionOverview regions={world.regions} selectedId={selectedRegion} onSelect={setSelectedRegion} />
       <HistoryFeed feed={world.feed} />
