@@ -3,7 +3,7 @@
 import os
 
 from cliova.application.worlds import WorldRepository
-from cliova.infrastructure.persistence.scheduling import PostgresScheduledWorldRepository
+from cliova.infrastructure.persistence.attention import PostgresAttentionWorldRepository
 
 
 def get_repository() -> WorldRepository:
@@ -12,4 +12,4 @@ def get_repository() -> WorldRepository:
     database_url = os.environ.get("CLIOVA_DATABASE_URL")
     if not database_url:
         raise RuntimeError("CLIOVA_DATABASE_URL is required for persisted API routes")
-    return PostgresScheduledWorldRepository(database_url)
+    return PostgresAttentionWorldRepository(database_url)
