@@ -183,9 +183,7 @@ def run_until_crisis(
 
 def test_healthy_conditions_do_not_create_food_insecurity_pressure() -> None:
     world, region_id, _ = one_region_world(arable_land=0.95)
-    world = set_food_conditions(
-        world, region_id, shortage_severity=0.0, food_security=1.0
-    )
+    world = set_food_conditions(world, region_id, shortage_severity=0.0, food_security=1.0)
 
     tick = scenario_engine().step(world)
 
@@ -230,16 +228,22 @@ def test_food_insecurity_deescalates_and_resolves_after_conditions_improve() -> 
     assert states[0].intensity < pressure_for(crisis, region_id).intensity
     assert states[-1].milestone == "resolved"
     assert states[-1].intensity == 0.0
-    assert sum(
-        event.kind == "food-insecurity-recovering"
-        for tick in recovery.ticks
-        for event in tick.events
-    ) == 1
-    assert sum(
-        event.kind == "food-insecurity-resolved"
-        for tick in recovery.ticks
-        for event in tick.events
-    ) == 1
+    assert (
+        sum(
+            event.kind == "food-insecurity-recovering"
+            for tick in recovery.ticks
+            for event in tick.events
+        )
+        == 1
+    )
+    assert (
+        sum(
+            event.kind == "food-insecurity-resolved"
+            for tick in recovery.ticks
+            for event in tick.events
+        )
+        == 1
+    )
 
 
 def test_food_insecurity_milestone_preserves_exact_scoped_causes() -> None:
@@ -335,9 +339,7 @@ def test_food_insecurity_milestone_preserves_exact_scoped_causes() -> None:
                 delta=0.0,
                 reason="resisted",
                 target=fertile_subject,
-                attributes=(
-                    ChangeAttribute(key="intent", value="strengthen_food_reserves"),
-                ),
+                attributes=(ChangeAttribute(key="intent", value="strengthen_food_reserves"),),
             ),
         ),
     )
@@ -372,9 +374,7 @@ def test_food_insecurity_milestone_preserves_exact_scoped_causes() -> None:
                 delta=0.0,
                 reason="resisted",
                 target=dry_subject,
-                attributes=(
-                    ChangeAttribute(key="intent", value="strengthen_food_reserves"),
-                ),
+                attributes=(ChangeAttribute(key="intent", value="strengthen_food_reserves"),),
             ),
         ),
     )
@@ -392,9 +392,7 @@ def test_food_insecurity_milestone_preserves_exact_scoped_causes() -> None:
         queued_inputs=(),
     )
 
-    result = ScenarioDomain().step(
-        world, context, random_for(world.seed, time.tick, "scenarios")
-    )
+    result = ScenarioDomain().step(world, context, random_for(world.seed, time.tick, "scenarios"))
     event = next(event for event in result.events if fertile in event.subjects)
 
     assert event.cause_event_ids == (
@@ -488,9 +486,7 @@ def test_scenario_replay_is_deterministic() -> None:
     world = set_food_conditions(world, region_id, shortage_severity=0.8, food_security=0.2)
 
     first = scenario_engine().run(world, years=5)
-    second = scenario_engine().run(
-        WorldState.model_validate_json(world.model_dump_json()), years=5
-    )
+    second = scenario_engine().run(WorldState.model_validate_json(world.model_dump_json()), years=5)
 
     assert first == second
     assert first.model_dump_json() == second.model_dump_json()
