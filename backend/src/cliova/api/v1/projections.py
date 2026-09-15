@@ -5,6 +5,7 @@ from typing import Literal, cast
 from cliova.api.v1.models import (
     AuthoritativeDirective,
     DirectiveTarget,
+    EntityKindDto,
     EntityRef,
     FoodStatus,
     GovernanceCondition,
@@ -22,7 +23,9 @@ from cliova.simulation.types import EntityId, SimulationEvent, WorldState
 
 
 def entity_ref(value: EntityId) -> EntityRef:
-    return EntityRef(kind=value.kind, id=value.value)
+    if value.kind in {"settlement", "structure"}:
+        raise ValueError(f"entity kind is not exposed by API v1: {value.kind}")
+    return EntityRef(kind=cast(EntityKindDto, value.kind), id=value.value)
 
 
 def _food_status(world: WorldState, region_id: EntityId) -> FoodStatus:
