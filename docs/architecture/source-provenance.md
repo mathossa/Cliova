@@ -28,13 +28,23 @@ For each candidate record:
 
 ### `Mindwerks/worldengine`
 
-- **Upstream:** `Mindwerks/worldengine`; plate tectonics, elevation, climate, precipitation/humidity, hydrology/erosion and biome generation for issue #59, plus rendering helpers inspected for issue #24.
-- **Revision:** release `v0.20.0`, commit `0e982b23439dbec1475da9755f774a5b2ab4dbe2` (inspected on 2026-09-15).
+- **Upstream:** `Mindwerks/worldengine`; plate tectonics, elevation, climate, precipitation/humidity, hydrology/erosion and biome generation for issue #59, plus rendering helpers reused for issue #24.
+- **Revision:** release `v0.20.0`, commit `0e982b23439dbec1475da9755f774a5b2ab4dbe2` (inspected on 2026-09-15/16).
 - **License/SPDX:** `MIT`; verified from the release's `LICENSE.txt` and package metadata.
 - **Classification:** `licensed-reusable`.
-- **Reuse mode:** `dependency`; Cliova pins `worldengine==0.20.0` and calls `worldengine.plates.world_gen` through a thin adapter. No WorldEngine implementation source is copied into Cliova.
+- **Reuse mode:** `dependency`; Cliova pins `worldengine==0.20.0`, calls `worldengine.plates.world_gen` through a thin adapter, and now also calls the pinned `draw_ancientmap_on_file` rendering API for the disposable strategic physical base. No WorldEngine implementation source is copied into Cliova.
 - **Attribution/NOTICE:** WorldEngine's copyright and MIT permission notice must remain available with distributed copies/substantial portions. The installed dependency retains its license; Cliova also records the notice in `THIRD_PARTY_NOTICES.md`.
-- **Rationale:** the upstream implementation already provides the substantial physical-generation mechanics requested by #59. For #24, `worldengine/draw.py`, including biome/elevation/satellite rendering and river drawing hooks, was inspected at the pinned revision. Those routines operate on the live upstream `World` object and detailed layers that #59 intentionally detaches/discards after generation. Re-running WorldEngine merely to draw would make rendering depend on regeneration rather than persisted authoritative presentation state, so #24 rejects that integration path and instead renders #59's stored land/region runs plus aggregate terrain/elevation into disposable SVG. WorldEngine 0.20.0 still performs one legacy global NumPy RNG draw inside `world_gen`; Cliova contains that call behind a lock with an explicit Cliova-derived seed and restores the prior RNG state.
+- **Rationale:** the upstream implementation already provides the substantial physical-generation mechanics requested by #59 and the map-like biome/river/mountain rendering requested by #24. The render path is kept inside the WorldEngine adapter: it deterministically regenerates the upstream object from the persisted world seed/config, renders a derived ancient-map PNG, immediately discards the upstream object, and caches only disposable presentation bytes. Authoritative Cliova simulation state remains the persisted aggregate geography and never depends on the regenerated render. WorldEngine 0.20.0 touches NumPy's legacy global RNG in generation and an old mountain helper; Cliova contains both generation and rendering behind a lock with explicit Cliova-derived seeding and restores the prior RNG state.
+
+### `shapely/shapely`
+
+- **Upstream:** `shapely/shapely`; planar geometry union/dissolve for issue #24 strategic region presentation.
+- **Revision:** release `2.1.2`, tag commit `5fb639d1056888d135fe56bfaf750c9648addeec` (inspected on 2026-09-16).
+- **License/SPDX:** `BSD-3-Clause`; verified from `LICENSE.txt` at the release commit. Shapely uses GEOS, distributed under LGPL-2.1-or-later-compatible terms.
+- **Classification:** `licensed-reusable`.
+- **Reuse mode:** `dependency`; Cliova pins `shapely==2.1.2` and uses public `box` plus `unary_union` geometry APIs. No Shapely/GEOS implementation source is copied into Cliova.
+- **Attribution/NOTICE:** retain the Shapely BSD-3-Clause notice for source/binary redistribution; dependency packaging carries its own license and Cliova records the notice in `THIRD_PARTY_NOTICES.md`.
+- **Rationale:** #59 persists compact horizontal raster runs, but presenting every run as a separate GeoJSON polygon produced visible spreadsheet-like internal edges. Shapely/GEOS supplies the mature topology operation needed to dissolve those cells into contiguous region polygons without inventing custom polygonization/computational-geometry code.
 
 ### `networkx/networkx` graph Voronoi
 
