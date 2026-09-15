@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { renderToStaticMarkup } from "react-dom/server";
 import type {
+  AttentionItemsResponse,
   CliovaApi,
+  DecisionOpportunityListResponse,
   DirectiveListResponse,
   DirectiveSubmissionRequest,
   HistoryResponse,
@@ -29,6 +31,8 @@ const CAUSE_ID = "55555555-5555-4555-8555-555555555555";
 const DIRECTIVE_ID = "66666666-6666-4666-8666-666666666666";
 const SETTLEMENT_ID = "88888888-8888-4888-8888-888888888888";
 const CAMP_ID = "99999999-9999-4999-8999-999999999999";
+const ATTENTION_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+const DECISION_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 
 const summary: WorldSummary = {
   id: WORLD_ID,
@@ -120,11 +124,11 @@ const map: WorldMapResponse = {
   tick: 7,
   available: true,
   unavailable_reason: null,
-  render_version: "strategic-svg-v1",
+  render_version: "strategic-worldengine-terrain-v3",
   coordinate_system: "cliova-grid-bottom-left-v1",
   extent_width: 32,
   extent_height: 16,
-  base_map_url: `/api/v1/worlds/${WORLD_ID}/map/base.svg?v=strategic-svg-v1`,
+  base_map_url: `/api/v1/worlds/${WORLD_ID}/map/base.svg?v=strategic-worldengine-terrain-v3`,
   visibility: "full",
   regions: [
     {
@@ -233,7 +237,56 @@ const directives: DirectiveListResponse = {
   directives: [],
 };
 
-const bundle: CommandCenterBundle = { summary, regions, map, history, directives };
+const attention: AttentionItemsResponse = {
+  world_id: WORLD_ID,
+  items: [
+    {
+      id: ATTENTION_ID,
+      target: { kind: "society", id: SOCIETY_ID },
+      created_tick: 7,
+      created_year: 1207,
+      category: "food-shortage",
+      priority: "important",
+      context: "Food demand exceeded current production.",
+      related_event_ids: [EVENT_ID],
+      related_subjects: [{ kind: "region", id: REGION_ID }],
+    },
+  ],
+};
+
+const decisions: DecisionOpportunityListResponse = {
+  world_id: WORLD_ID,
+  opportunities: [
+    {
+      id: DECISION_ID,
+      target: { kind: "society", id: SOCIETY_ID },
+      created_tick: 7,
+      created_year: 1207,
+      category: "food-shortage-priority",
+      context: "Food demand exceeded current production.",
+      related_event_ids: [EVENT_ID],
+      related_subjects: [{ kind: "region", id: REGION_ID }],
+      earliest_effect_tick: 8,
+      expires_at_tick: null,
+      default_behavior: "No new directive is submitted; existing directives continue unchanged.",
+      response_intent: "strengthen_food_reserves",
+      status: "open",
+      response_queue_id: null,
+      response_submitted_tick: null,
+      response_directive_id: null,
+    },
+  ],
+};
+
+const bundle: CommandCenterBundle = {
+  summary,
+  regions,
+  map,
+  history,
+  directives,
+  attention,
+  decisions,
+};
 
 const noOpActions = {
   selectWorld: async () => {},
@@ -248,7 +301,14 @@ test("Command Center renders authoritative summary and generated map without dem
   const html = renderToStaticMarkup(
     <CommandCenter
       world={world}
-      worlds={[{ id: WORLD_ID, tick: 7, year: 1207, region_count: 2, society_count: 1, population_total: 4200 }]}
+      worlds={[{
+        id: WORLD_ID,
+        tick: 7,
+        year: 1207,
+        region_count: 2,
+        society_count: 1,
+        population_total: 4200,
+      }]}
       actions={noOpActions}
     />,
   );
@@ -316,7 +376,7 @@ test("strategic map exposes explicit unavailable state and never silently uses f
   assert.doesNotMatch(html, /strategic-map-canvas/);
 });
 
-test("presentation derives readable society and pressure labels from public region data", () => {
+test("presentation derives readable society, attention and map labels", () => {
   const world = toWorldSnapshot(bundle);
 
   assert.equal(world.societies[0]?.label, "Northreach Society");
@@ -326,12 +386,19 @@ test("presentation derives readable society and pressure labels from public regi
   assert.equal(world.feed[0]?.text, "Northreach Society is experiencing a food shortage.");
   assert.equal(world.feed[0]?.technicalDetail, "Food demand exceeded current production.");
   assert.deepEqual(world.feed[0]?.regionIds, [REGION_ID]);
+  assert.equal(world.attentionItems[0]?.targetLabel, "Northreach Society");
+  assert.equal(world.decisionOpportunities[0]?.earliestEffectTick, 8);
+  assert.equal(world.map.render_version, "strategic-worldengine-terrain-v3");
 });
 
 test("loading, empty and backend failure states are explicit", () => {
   const loading = renderToStaticMarkup(<WorldLoadStatus status="loading" />);
-  const empty = renderToStaticMarkup(<WorldLoadStatus status="empty" createWorld={async () => {}} />);
-  const failed = renderToStaticMarkup(<WorldLoadStatus status="unavailable" message="Persistence operation failed." />);
+  const empty = renderToStaticMarkup(
+    <WorldLoadStatus status="empty" createWorld={async () => {}} />,
+  );
+  const failed = renderToStaticMarkup(
+    <WorldLoadStatus status="unavailable" message="Persistence operation failed." />,
+  );
 
   assert.match(loading, /Retrieving authoritative simulation status/);
   assert.match(empty, /No development world/);
@@ -341,16 +408,22 @@ test("loading, empty and backend failure states are explicit", () => {
   assert.doesNotMatch(failed, /Prototype World/);
 });
 
-test("directive panel uses controlled actions and readable targets", () => {
+test("directive panel shows non-blocking decisions and controlled response actions", () => {
   const world = toWorldSnapshot(bundle);
-  const html = renderToStaticMarkup(<DirectivesPanel world={world} onSubmit={async () => {}} />);
+  const html = renderToStaticMarkup(
+    <DirectivesPanel world={world} onSubmit={async () => {}} />,
+  );
 
   assert.match(html, /Strengthen food reserves/);
   assert.match(html, /Northreach Society/);
   assert.match(html, /Development operator/);
   assert.match(html, /Free text is not interpreted as simulation input/);
   assert.match(html, /Normal/);
+  assert.match(html, /world continues/);
+  assert.match(html, /earliest effect tick 8/);
+  assert.match(html, /Queue suggested directive/);
   assert.doesNotMatch(html, /Author<input/);
+  assert.doesNotMatch(html, /paused while you decide/i);
 });
 
 test("directive submission and manual tick revalidate lifecycle state including map projection", async () => {
@@ -362,7 +435,14 @@ test("directive submission and manual tick revalidate lifecycle state including 
   const api: CliovaApi = {
     async listWorlds(): Promise<WorldListResponse> {
       return {
-        worlds: [{ id: WORLD_ID, tick, year: 1200 + tick, region_count: 2, society_count: 1, population_total: 4200 }],
+        worlds: [{
+          id: WORLD_ID,
+          tick,
+          year: 1200 + tick,
+          region_count: 2,
+          society_count: 1,
+          population_total: 4200,
+        }],
       };
     },
     async createDevelopmentWorld() {
@@ -397,7 +477,16 @@ test("directive submission and manual tick revalidate lifecycle state including 
         }] : [],
       };
     },
-    async submitDirective(_worldId: string, request: DirectiveSubmissionRequest): Promise<QueuedDirective> {
+    async getAttentionItems() {
+      return attention;
+    },
+    async getDecisionOpportunities() {
+      return decisions;
+    },
+    async submitDirective(
+      _worldId: string,
+      request: DirectiveSubmissionRequest,
+    ): Promise<QueuedDirective> {
       const queued: QueuedDirective = {
         queue_id: 8,
         submitted_tick: tick,
@@ -409,7 +498,10 @@ test("directive submission and manual tick revalidate lifecycle state including 
       pending = [queued];
       return queued;
     },
-    async advanceDevelopmentTick(_worldId: string, expectedTick: number): Promise<ManualTickResponse> {
+    async advanceDevelopmentTick(
+      _worldId: string,
+      expectedTick: number,
+    ): Promise<ManualTickResponse> {
       expectedTickSeen = expectedTick;
       tick += 1;
       pending = [];
@@ -426,7 +518,9 @@ test("directive submission and manual tick revalidate lifecycle state including 
   assert.equal(initial.kind, "ready");
   if (initial.kind !== "ready") return;
   assert.equal(initial.data.directives.pending.length, 0);
-  assert.equal(initial.data.map.render_version, "strategic-svg-v1");
+  assert.equal(initial.data.map.render_version, "strategic-worldengine-terrain-v3");
+  assert.equal(initial.data.attention.items.length, 1);
+  assert.equal(initial.data.decisions.opportunities.length, 1);
 
   const afterSubmit = await client.submitDirective(WORLD_ID, {
     author: "command-center",
