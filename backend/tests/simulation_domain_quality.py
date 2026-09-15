@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Hashable, Iterable
 from dataclasses import dataclass
-from math import isfinite
+from math import isclose, isfinite
 
 from simulation_quality import (
     HeadlessTrace,
@@ -10,8 +10,10 @@ from simulation_quality import (
     assert_core_invariants,
 )
 
+from cliova.simulation.domains.economy import LABOUR_SHARE
 from cliova.simulation.domains.knowledge import KnowledgeDomain
 from cliova.simulation.domains.politics import execution_strength
+from cliova.simulation.domains.population.seasonal_access import SEASONAL_PASTORAL_ACCESS_SHARE
 from cliova.simulation.types import EntityId, WorldState
 
 
@@ -22,6 +24,7 @@ class DomainIdentitySnapshot:
     economy_regions: tuple[EntityId, ...]
     governance_bindings: tuple[tuple[EntityId, EntityId], ...]
     knowledge_bindings: tuple[tuple[EntityId, tuple[EntityId, ...]], ...]
+    society_cores: tuple[tuple[EntityId, EntityId], ...]
 
 
 def assert_domain_stack_invariants(
@@ -49,6 +52,57 @@ def assert_domain_stack_invariants(
                 tick=world.time.tick,
                 detail=f"expected={expected_identity!r} actual={identity!r}",
             )
+
+    previous = trace.initial_world
+    for result in trace.run.ticks:
+        world = result.world
+        try:
+            if world.population and previous.population:
+                for population in world.population.regions:
+                    delta = sum(
+                        change.delta
+                        for change in result.changes
+                        if change.target == population.region_id
+                        and change.key == "population.total"
+                    )
+                    assert (
+                        population.total
+                        == previous.population.region(population.region_id).total + delta
+                    ), (
+                        f"region={population.region_id} population.total={population.total} "
+                        f"delta={delta}"
+                    )
+            if world.economy and previous.economy:
+                for regional in world.economy.regions:
+                    for resource in regional.resources:
+                        before = previous.economy.region(regional.region_id).resource(
+                            resource.resource
+                        )
+                        loss = (
+                            resource.food_reserves.spoilage_loss if resource.food_reserves else 0.0
+                        )
+                        assert isclose(
+                            before.stockpile + resource.production,
+                            resource.consumed + loss + resource.stockpile,
+                            rel_tol=0.0,
+                            abs_tol=3e-6,
+                        ), (
+                            f"region={regional.region_id} resource={resource.resource} "
+                            f"previous={before.stockpile} production={resource.production} "
+                            f"consumed={resource.consumed} loss={loss} "
+                            f"stockpile={resource.stockpile}"
+                        )
+            for old in previous.directives:
+                current = next(item for item in world.directives if item.id == old.id)
+                assert current.model_dump(exclude={"status", "progress"}) == old.model_dump(
+                    exclude={"status", "progress"}
+                ), f"directive={old.id} identity changed"
+                assert current.progress >= old.progress, f"directive={old.id} progress decreased"
+                if old.status in {"completed", "failed"}:
+                    assert current == old, f"directive={old.id} terminal state changed"
+        except (AssertionError, KeyError, StopIteration) as exc:
+            _fail("domain-accounting", seed=trace.seed, tick=world.time.tick, detail=str(exc))
+        previous = world
 
 
 def assert_world_domain_invariants(
@@ -147,30 +201,30 @@ def assert_world_domain_invariants(
             tick=tick,
         )
         population_set = set(population_ids)
-        for item in world.economy.regions:
-            entity = _entity_label(item.region_id)
+        for economy_region in world.economy.regions:
+            entity = _entity_label(economy_region.region_id)
             _assert_reference(
-                item.region_id,
+                economy_region.region_id,
                 geography_set,
                 field="economy.region_id",
                 seed=seed,
                 tick=tick,
             )
             _assert_reference(
-                item.region_id,
+                economy_region.region_id,
                 population_set,
                 field="economy.inhabited_region_id",
                 seed=seed,
                 tick=tick,
             )
             _assert_unique(
-                (resource.resource for resource in item.resources),
+                (resource.resource for resource in economy_region.resources),
                 invariant="unique-domain-entities",
                 label=f"economy.resources[{entity}]",
                 seed=seed,
                 tick=tick,
             )
-            for resource in item.resources:
+            for resource in economy_region.resources:
                 _assert_fields(
                     resource,
                     (
@@ -207,7 +261,7 @@ def assert_world_domain_invariants(
                 )
                 modifier = knowledge_domain.capability_modifier(
                     world,
-                    item.region_id,
+                    economy_region.region_id,
                     resource.resource,
                 )
                 _assert_range(
@@ -341,6 +395,80 @@ def assert_world_domain_invariants(
                     tick=tick,
                 )
 
+    # Reuse authoritative Pydantic bounds/food-limit/reserve/reference validators via
+    # assert_core_invariants; only cross-record relationships missing there live here.
+    try:
+        if world.economy and world.population and world.geography:
+            for regional in world.economy.regions:
+                food = regional.resource("food")
+                if food.food_production:
+                    assert sum(method.allocated_labour for method in food.food_production) <= (
+                        world.population.region(regional.region_id).total * LABOUR_SHARE + 3e-6
+                    ), f"region={regional.region_id} allocated food labour exceeds pool"
+                    assert isclose(
+                        food.production,
+                        sum(m.output for m in food.food_production),
+                        rel_tol=0.0,
+                        abs_tol=3e-6,
+                    ), f"region={regional.region_id} food production sum"
+                for resource in regional.resources:
+                    assert resource.consumed <= resource.demand + 1e-6, (
+                        f"region={regional.region_id} resource={resource.resource} "
+                        "consumed > demand"
+                    )
+                    assert isclose(
+                        resource.demand,
+                        resource.consumed + resource.deficit,
+                        rel_tol=0.0,
+                        abs_tol=3e-6,
+                    ), f"region={regional.region_id} demand accounting"
+            # Global conservation detects duplicated local/external grazing opportunity.
+            pastoral = [
+                method
+                for regional in world.economy.regions
+                for method in regional.resource("food").food_production
+                if method.method == "pastoralism"
+            ]
+            assert sum(m.regional_potential + m.external_potential for m in pastoral) <= (
+                sum(r.resource_potential("grazing") for r in world.geography.regions) + 1e-5
+            ), "pastoralism local + external potential exceeds world opportunity"
+        shares: dict[EntityId, float] = {}
+        for relationship in world.society_regions:
+            assert world.geography is not None
+            neighbors = {
+                connection.b if connection.a == relationship.core_region_id else connection.a
+                for connection in world.geography.connections
+                if relationship.core_region_id in (connection.a, connection.b)
+            }
+            for access in relationship.temporary_access:
+                assert access.region_id in neighbors, (
+                    f"society={relationship.society_id} access not adjacent"
+                )
+                assert access.production_method == "pastoralism", (
+                    f"society={relationship.society_id} access method"
+                )
+                assert access.access_share <= SEASONAL_PASTORAL_ACCESS_SHARE, (
+                    f"society={relationship.society_id} access share={access.access_share}"
+                )
+                shares[access.region_id] = shares.get(access.region_id, 0.0) + access.access_share
+        for region_id, share in shares.items():
+            assert share <= 1.0 + 1e-6, f"region={region_id} allocated access share={share}"
+        for directive in world.directives:
+            assert directive.submitted_tick <= tick, f"directive={directive.id} future submission"
+            if directive.status != "failed":
+                assert directive.target_subject in governance_subjects, (
+                    f"directive={directive.id} target"
+                )
+            if directive.status == "completed":
+                assert directive.progress == 1.0, f"directive={directive.id} incomplete completion"
+        for pressure in world.pressures:
+            if pressure.subject_id is not None:
+                assert pressure.subject_id in governance_subjects, f"pressure={pressure.id} subject"
+            if pressure.milestone == "resolved":
+                assert pressure.intensity == 0.0, f"pressure={pressure.id} resolved intensity"
+    except (AssertionError, KeyError) as exc:
+        _fail("living-stack-integrity", seed=seed, tick=tick, detail=str(exc))
+
 
 def _identity_snapshot(world: WorldState) -> DomainIdentitySnapshot:
     geography = (
@@ -369,7 +497,13 @@ def _identity_snapshot(world: WorldState) -> DomainIdentitySnapshot:
         if world.knowledge
         else ()
     )
-    return DomainIdentitySnapshot(geography, population, economy, governance, knowledge)
+    cores = tuple(
+        sorted(
+            ((r.society_id, r.core_region_id) for r in world.society_regions),
+            key=lambda item: _entity_sort_key(item[0]),
+        )
+    )
+    return DomainIdentitySnapshot(geography, population, economy, governance, knowledge, cores)
 
 
 def _assert_fields(

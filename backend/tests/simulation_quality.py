@@ -7,7 +7,7 @@ from statistics import median
 from time import perf_counter_ns
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from cliova.simulation.engine import SimulationEngine
 from cliova.simulation.history import EventHistory
@@ -53,6 +53,7 @@ def run_headless(
     *,
     years: int,
     inputs: Sequence[Sequence[SimulationInput]] = (),
+    next_inputs: Callable[[TickResult], Sequence[SimulationInput]] | None = None,
 ) -> HeadlessTrace:
     """Run existing engine ticks one-by-one so failures retain exact tick context."""
     if type(years) is not int or years < 0:
@@ -66,8 +67,16 @@ def run_headless(
     engine = engine_factory()
     world = initial_world
     ticks: list[TickResult] = []
+    pending: tuple[SimulationInput, ...] = ()
     for index in range(years):
-        tick = engine.step(world, inputs=input_batches[index] if index < len(input_batches) else ())
+        ordered = input_batches[index] if index < len(input_batches) else ()
+        try:
+            tick = engine.step(world, inputs=(*pending, *ordered))
+        except Exception as exc:
+            raise SimulationQualityError(
+                f"engine-step failed: seed={initial_world.seed} tick={world.time.tick + 1}; {exc}"
+            ) from exc
+        pending = tuple(next_inputs(tick)) if next_inputs is not None else ()
         ticks.append(tick)
         world = tick.world
 
@@ -108,11 +117,16 @@ def assert_replay_equivalent(
     *,
     years: int,
     inputs: Sequence[Sequence[SimulationInput]] = (),
+    next_inputs: Callable[[TickResult], Sequence[SimulationInput]] | None = None,
 ) -> tuple[HeadlessTrace, HeadlessTrace]:
     """Replay a case from fresh state/engine instances and compare state plus history."""
     input_batches = tuple(tuple(batch) for batch in inputs)
-    first = run_headless(world_factory, engine_factory, years=years, inputs=input_batches)
-    second = run_headless(world_factory, engine_factory, years=years, inputs=input_batches)
+    first = run_headless(
+        world_factory, engine_factory, years=years, inputs=input_batches, next_inputs=next_inputs
+    )
+    second = run_headless(
+        world_factory, engine_factory, years=years, inputs=input_batches, next_inputs=next_inputs
+    )
     assert_core_invariants(first)
     assert_core_invariants(second)
 
@@ -168,8 +182,10 @@ def assert_replay_equivalent(
 
 def assert_monotonic_ticks(trace: HeadlessTrace) -> None:
     expected = trace.initial_world.time.tick
+    expected_year = trace.initial_world.time.year
     for tick_result in trace.run.ticks:
         expected += 1
+        expected_year += 1
         actual = tick_result.world.time.tick
         if actual != expected:
             _fail(
@@ -177,6 +193,13 @@ def assert_monotonic_ticks(trace: HeadlessTrace) -> None:
                 seed=trace.seed,
                 tick=actual,
                 detail=f"expected tick {expected}, got {actual}",
+            )
+        if tick_result.world.time.year != expected_year:
+            _fail(
+                "monotonic-years",
+                seed=trace.seed,
+                tick=tick_result.world.time.tick,
+                detail=f"expected year {expected_year}, got {tick_result.world.time.year}",
             )
         for event in tick_result.events:
             if event.time.tick != actual:
@@ -206,7 +229,10 @@ def assert_unique_event_ids(trace: HeadlessTrace) -> None:
 
 def assert_stable_entity_ids(world: WorldState, *, seed: int, tick: int) -> None:
     """Ensure every currently materialized entity ID survives authoritative JSON round-trip."""
-    restored = WorldState.model_validate_json(world.model_dump_json())
+    try:
+        restored = WorldState.model_validate_json(world.model_dump_json())
+    except ValidationError as exc:
+        _fail("valid-world-state", seed=seed, tick=tick, detail=str(exc))
     before = tuple(_iter_entity_ids(world))
     after = tuple(_iter_entity_ids(restored))
     if before != after:
