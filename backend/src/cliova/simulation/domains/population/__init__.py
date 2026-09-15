@@ -18,6 +18,11 @@ from cliova.simulation.domains.population.pressure import (
     PopulationNeedTarget,
     population_need_input,
 )
+from cliova.simulation.domains.population.seasonal_access import (
+    SEASONAL_PASTORAL_ACCESS_SHARE,
+    SeasonalSubsistenceAccessDomain,
+    initialize_society_region_relationships,
+)
 
 __all__ = [
     "DEFAULT_INITIAL_POPULATION",
@@ -27,9 +32,12 @@ __all__ = [
     "MIGRATION_PRESSURE",
     "POPULATION_TOTAL",
     "SAFETY",
+    "SEASONAL_PASTORAL_ACCESS_SHARE",
     "SOCIAL_CONFIDENCE",
     "PopulationDomain",
     "PopulationNeedTarget",
+    "SeasonalSubsistenceAccessDomain",
     "initialize_population",
+    "initialize_society_region_relationships",
     "population_need_input",
 ]
