@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { cliovaApi, describeApiError, type LocalMapRequest } from "../../lib/api";
@@ -16,7 +17,6 @@ export function LocalMapLoader({ worldId, settlementId }: { worldId: string; set
 
   useEffect(() => {
     let cancelled = false;
-    setState({ status: "loading" });
     cliovaApi.getSettlementMap(worldId, settlementId).then(
       (request) => {
         if (cancelled) return;
@@ -49,7 +49,7 @@ export function LocalMapLoader({ worldId, settlementId }: { worldId: string; set
         <p style={{ textTransform: "uppercase", opacity: 0.65, letterSpacing: "0.12em" }}>Cliova · Local map</p>
         <h1>{state.status === "loading" ? "Generating settlement…" : "Local map unavailable"}</h1>
         {state.status === "error" && <p>{state.message}</p>}
-        <a href="/" style={{ color: "inherit" }}>← Back to world context</a>
+        <Link href="/" style={{ color: "inherit" }}>← Back to world context</Link>
       </section>
     </main>
   );
