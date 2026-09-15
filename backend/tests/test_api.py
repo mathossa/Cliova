@@ -31,10 +31,7 @@ class InMemoryWorldRepository:
         self.histories[world_id] = EventHistory()
 
     def list_worlds(self) -> tuple[WorldState, ...]:
-        return tuple(
-            self.worlds[key]
-            for key in sorted(self.worlds, key=lambda value: value.hex)
-        )
+        return tuple(self.worlds[key] for key in sorted(self.worlds, key=lambda value: value.hex))
 
     def load_world(self, world_id: UUID) -> WorldState:
         try:
@@ -191,9 +188,7 @@ async def test_directive_queue_tick_lifecycle_and_history(
     )
     assert history.status_code == 200
     events = history.json()["events"]
-    submitted_event = next(
-        event for event in events if event["kind"] == "directive-submitted"
-    )
+    submitted_event = next(event for event in events if event["kind"] == "directive-submitted")
     queued_event = next(event for event in events if event["kind"] == "directive-queued")
     assert queued_event["cause_event_ids"] == [submitted_event["id"]]
 
