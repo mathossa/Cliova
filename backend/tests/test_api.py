@@ -108,7 +108,7 @@ async def client() -> AsyncIterator[httpx2.AsyncClient]:
 
 async def _create_world(client: httpx2.AsyncClient) -> dict[str, object]:
     response = await client.post(
-        "/api/v1/development/worlds",
+        "/api/v1/dev/worlds",
         json={"seed": 41, "world_key": "api-test"},
     )
     assert response.status_code == 201
@@ -175,7 +175,7 @@ async def test_directive_queue_tick_lifecycle_and_history(
     assert queued.json()["directives"] == []
 
     advanced = await client.post(
-        f"/api/v1/development/worlds/{world_id}/ticks",
+        f"/api/v1/dev/worlds/{world_id}/ticks",
         json={"expected_tick": 0},
     )
     assert advanced.status_code == 200
@@ -216,7 +216,7 @@ async def test_missing_world_and_invalid_requests_are_normalized(
     missing_id = uuid4()
     missing = await client.get(f"/api/v1/worlds/{missing_id}")
     invalid_request = await client.post(
-        "/api/v1/development/worlds",
+        "/api/v1/dev/worlds",
         json={"seed": "not-an-integer"},
     )
 
@@ -265,11 +265,11 @@ async def test_manual_tick_rejects_stale_expected_tick(
     world_id = created["id"]
 
     first = await client.post(
-        f"/api/v1/development/worlds/{world_id}/ticks",
+        f"/api/v1/dev/worlds/{world_id}/ticks",
         json={"expected_tick": 0},
     )
     stale = await client.post(
-        f"/api/v1/development/worlds/{world_id}/ticks",
+        f"/api/v1/dev/worlds/{world_id}/ticks",
         json={"expected_tick": 0},
     )
 
