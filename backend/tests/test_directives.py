@@ -102,8 +102,12 @@ def test_same_queued_directive_transitions_deterministically() -> None:
 
 
 def test_strong_governance_executes_faster_than_weak_governance() -> None:
-    strong, strong_subject = configured_world(execution_capacity=0.9, legitimacy=0.9, resistance=0.1)
-    weak, weak_subject = configured_world(execution_capacity=0.4, legitimacy=0.4, resistance=0.4)
+    strong, strong_subject = configured_world(
+        execution_capacity=0.9, legitimacy=0.9, resistance=0.1
+    )
+    weak, weak_subject = configured_world(
+        execution_capacity=0.4, legitimacy=0.4, resistance=0.4
+    )
 
     strong_queued = directive_engine().step(strong, inputs=(submit(strong_subject),))
     weak_queued = directive_engine().step(weak, inputs=(submit(weak_subject),))
