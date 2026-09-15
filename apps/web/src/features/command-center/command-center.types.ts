@@ -1,4 +1,6 @@
 import type {
+  AttentionPriority,
+  DirectiveIntent,
   DirectivePriority,
   DirectiveStatus,
   DirectiveSubmissionRequest,
@@ -90,6 +92,31 @@ export type DirectiveView = {
   progress: string;
 };
 
+export type AttentionItemView = {
+  id: string;
+  targetLabel: string;
+  createdTick: number;
+  createdYear: number;
+  category: string;
+  priority: AttentionPriority;
+  context: string;
+  relatedEventIds: string[];
+};
+
+export type DecisionOpportunityView = {
+  id: string;
+  targetId: string;
+  targetKind: "society" | "polity";
+  targetLabel: string;
+  createdTick: number;
+  category: string;
+  context: string;
+  earliestEffectTick: number;
+  expiresAtTick: number | null;
+  defaultBehavior: string;
+  responseIntent: DirectiveIntent;
+};
+
 export type WorldMetric = {
   label: string;
   value: string;
@@ -114,6 +141,8 @@ export type WorldSnapshot = {
   societies: SocietyView[];
   metrics: WorldMetric[];
   pressures: PressureView[];
+  attentionItems: AttentionItemView[];
+  decisionOpportunities: DecisionOpportunityView[];
   pendingDirectives: DirectiveQueueView[];
   directives: DirectiveView[];
   map: WorldMapResponse;
