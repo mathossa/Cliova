@@ -8,6 +8,7 @@ import type {
   QueuedDirective,
   RegionStatusResponse,
   WorldListResponse,
+  WorldMapResponse,
   WorldSummary,
 } from "../../../../packages/contracts/v1";
 
@@ -23,13 +24,17 @@ export type {
   HistoryEvent,
   HistoryResponse,
   ManualTickResponse,
+  MapRegionFeature,
   PressureStatus,
   QueuedDirective,
   RegionStatus,
   RegionStatusResponse,
+  SettlementMapMarker,
   SocietySummary,
+  TemporaryPresence,
   WorldListItem,
   WorldListResponse,
+  WorldMapResponse,
   WorldSummary,
 } from "../../../../packages/contracts/v1";
 
@@ -45,6 +50,7 @@ export interface CliovaApi {
   createDevelopmentWorld(request: CreateDevelopmentWorldRequest): Promise<WorldSummary>;
   getWorld(worldId: string): Promise<WorldSummary>;
   getRegions(worldId: string): Promise<RegionStatusResponse>;
+  getWorldMap(worldId: string): Promise<WorldMapResponse>;
   getHistory(worldId: string, query?: HistoryQuery): Promise<HistoryResponse>;
   getDirectives(worldId: string): Promise<DirectiveListResponse>;
   submitDirective(worldId: string, request: DirectiveSubmissionRequest): Promise<QueuedDirective>;
@@ -98,6 +104,10 @@ export class HttpCliovaApiClient implements CliovaApi {
 
   getRegions(worldId: string): Promise<RegionStatusResponse> {
     return this.request(`/api/v1/worlds/${encodeURIComponent(worldId)}/regions`);
+  }
+
+  getWorldMap(worldId: string): Promise<WorldMapResponse> {
+    return this.request(`/api/v1/worlds/${encodeURIComponent(worldId)}/map`);
   }
 
   getHistory(worldId: string, query: HistoryQuery = {}): Promise<HistoryResponse> {
