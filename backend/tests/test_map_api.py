@@ -5,6 +5,7 @@ import httpx2
 import pytest
 
 from cliova.api.dependencies import get_repository
+from cliova.api.v1.map_projection import MAP_RENDER_VERSION
 from cliova.infrastructure.persistence.postgres import WorldNotFoundError
 from cliova.main import create_app
 from cliova.simulation.domains.world.fixtures import create_starter_world
@@ -40,16 +41,16 @@ async def test_generated_world_map_and_base_svg_are_exposed_without_domain_inter
     payload = response.json()
     assert payload["available"] is True
     assert len(payload["regions"]) == len(world.geography.regions)  # type: ignore[union-attr]
-    assert payload["base_map_url"].endswith("strategic-svg-v1")
+    assert payload["base_map_url"].endswith(MAP_RENDER_VERSION)
     assert "generation" not in payload
     assert "presentation" not in payload
     assert "runs" not in payload["regions"][0]
 
     assert base.status_code == 200
     assert base.headers["content-type"].startswith("image/svg+xml")
-    assert base.headers["x-cliova-map-render-version"] == "strategic-svg-v1"
+    assert base.headers["x-cliova-map-render-version"] == MAP_RENDER_VERSION
     assert base.headers["etag"]
-    assert 'data-render-version="strategic-svg-v1"' in base.text
+    assert f'data-render-version="{MAP_RENDER_VERSION}"' in base.text
 
 
 @pytest.mark.anyio
