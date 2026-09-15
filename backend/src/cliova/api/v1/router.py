@@ -3,10 +3,12 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, Request, status
+from fastapi import APIRouter, Depends, Query, Request, Response, status
 
 from cliova.api.dependencies import get_repository
 from cliova.api.errors import ApiError
+from cliova.api.v1.map_projection import MAP_RENDER_VERSION, world_map_projection
+from cliova.api.v1.map_rendering import render_physical_base_svg, svg_etag
 from cliova.api.v1.models import (
     CreateDevelopmentWorldRequest,
     DirectiveListResponse,
@@ -19,6 +21,7 @@ from cliova.api.v1.models import (
     RegionStatusResponse,
     SocietyStatusResponse,
     WorldListResponse,
+    WorldMapResponse,
     WorldSummary,
 )
 from cliova.api.v1.projections import (
@@ -49,7 +52,11 @@ def create_world(
     request: CreateDevelopmentWorldRequest,
     repository: RepositoryDependency,
 ) -> WorldSummary:
-    world = create_development_world(seed=request.seed, world_key=request.world_key)
+    world = create_development_world(
+        seed=request.seed,
+        world_key=request.world_key,
+        generated_geography=request.generated_geography,
+    )
     repository.create_world(world)
     return world_summary(world)
 
@@ -83,6 +90,33 @@ def get_societies(world_id: UUID, repository: RepositoryDependency) -> SocietySt
         world_id=world.id.value,
         tick=world.time.tick,
         societies=society_summaries(world),
+    )
+
+
+@router.get("/worlds/{world_id}/map", response_model=WorldMapResponse)
+def get_world_map(world_id: UUID, repository: RepositoryDependency) -> WorldMapResponse:
+    return world_map_projection(repository.load_world(world_id))
+
+
+@router.get("/worlds/{world_id}/map/base.svg", response_class=Response)
+def get_world_base_map(world_id: UUID, repository: RepositoryDependency) -> Response:
+    world = repository.load_world(world_id)
+    try:
+        svg = render_physical_base_svg(world)
+    except ValueError as exc:
+        raise ApiError(
+            404,
+            "map_unavailable",
+            "This world has no persisted strategic presentation geometry.",
+        ) from exc
+    return Response(
+        content=svg,
+        media_type="image/svg+xml",
+        headers={
+            "Cache-Control": "public, max-age=86400",
+            "ETag": svg_etag(svg),
+            "X-Cliova-Map-Render-Version": MAP_RENDER_VERSION,
+        },
     )
 
 
