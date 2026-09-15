@@ -1,6 +1,7 @@
 """PostgreSQL adapter for development world discovery on top of #13 persistence."""
 
-from typing import Any, cast
+from typing import cast
+from uuid import UUID
 
 from psycopg.errors import UniqueViolation
 
@@ -35,8 +36,8 @@ class PostgresWorldRepository(PostgresPersistence):
 
         return tuple(
             self._world_from_row(
-                cast(dict[str, Any], row),
-                expected_world_id=cast(Any, row["world_id"]),
+                row,
+                expected_world_id=cast(UUID, row["world_id"]),
             )
             for row in rows
         )
