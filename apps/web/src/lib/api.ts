@@ -15,6 +15,7 @@ export type {
   ApiErrorResponse,
   AuthoritativeDirective,
   CreateDevelopmentWorldRequest,
+  DirectiveIntent,
   DirectiveListResponse,
   DirectivePriority,
   DirectiveStatus,
@@ -128,57 +129,57 @@ export class HttpCliovaApiClient implements CliovaApi {
   private async request<T>(path: string, init: RequestInit = {}): Promise<T> {
     let response: Response;
     try {
-      const headers = new Headers(init.headers);
-      headers.set("Accept", "application/json");
-      if (init.body !== undefined && !headers.has("Content-Type")) {
-        headers.set("Content-Type", "application/json");
-      }
       response = await this.fetchImpl(`${this.baseUrl}${path}`, {
         ...init,
+        headers: {
+          Accept: "application/json",
+          ...(init.body ? { "Content-Type": "application/json" } : {}),
+          ...init.headers,
+        },
         cache: "no-store",
-        headers,
       });
-    } catch (error) {
-      throw new CliovaApiError(
-        "Unable to reach the Cliova API.",
-        { status: 0, code: "network_error" },
-        { cause: error },
-      );
+    } catch (cause) {
+      throw new CliovaApiError("Unable to reach the Cliova API.", {
+        status: 0,
+        code: "network_error",
+      }, { cause });
     }
 
     if (!response.ok) {
-      const payload = await parseApiError(response);
-      throw new CliovaApiError(payload.message, {
+      const payload = await parseErrorPayload(response);
+      throw new CliovaApiError(payload.error.message, {
         status: response.status,
-        code: payload.code,
-        details: payload.details,
+        code: payload.error.code,
+        details: payload.error.details,
       });
     }
 
-    return (await response.json()) as T;
+    return response.json() as Promise<T>;
   }
 }
 
-async function parseApiError(
-  response: Response,
-): Promise<{ code: string; message: string; details: ApiErrorResponse["error"]["details"] }> {
+async function parseErrorPayload(response: Response): Promise<ApiErrorResponse> {
   try {
-    const payload = (await response.json()) as Partial<ApiErrorResponse>;
-    if (payload.error && typeof payload.error.code === "string" && typeof payload.error.message === "string") {
+    const payload = await response.json() as Partial<ApiErrorResponse>;
+    if (payload.error?.message && payload.error.code) {
       return {
-        code: payload.error.code,
-        message: payload.error.message,
-        details: Array.isArray(payload.error.details) ? payload.error.details : [],
+        error: {
+          code: payload.error.code,
+          message: payload.error.message,
+          details: payload.error.details ?? [],
+        },
       };
     }
   } catch {
-    // Fall through to the stable generic HTTP error below.
+    // Fall through to a stable client-side error shape.
   }
 
   return {
-    code: `http_${response.status}`,
-    message: `Cliova API request failed with HTTP ${response.status}.`,
-    details: [],
+    error: {
+      code: `http_${response.status}`,
+      message: `Cliova API request failed with HTTP ${response.status}.`,
+      details: [],
+    },
   };
 }
 
