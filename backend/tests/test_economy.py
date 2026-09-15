@@ -125,13 +125,22 @@ def test_food_shortage_becomes_next_tick_population_pressure_without_direct_muta
     assert economy_tick.world.economy is not None
     shortage = economy_tick.world.economy.region(dry.id).resource("food").shortage_severity
     assert shortage > 0.0
+    shortage_event = next(
+        event
+        for event in economy_tick.events
+        if event.source == "economy"
+        and event.kind == "resource-shortage"
+        and dry.id in event.subjects
+        and any(change.key == "economy.food.shortage_severity" for change in event.changes)
+    )
 
-    pressure = population_food_pressure_input(economy_tick.world)
+    pressure = population_food_pressure_input(economy_tick.world, events=economy_tick.events)
     assert pressure is not None
     dry_pressure = next(change for change in pressure.changes if change.target == dry.id)
     assert dry_pressure.source == "population"
     assert dry_pressure.key == "population.food_security"
     assert dry_pressure.delta == pytest.approx(-shortage)
+    assert dry_pressure.cause_event_ids == (shortage_event.id,)
 
     control = SimulationEngine((PopulationDomain(), EconomyDomain())).step(economy_tick.world)
     stressed = SimulationEngine((PopulationDomain(), EconomyDomain())).step(
@@ -145,6 +154,27 @@ def test_food_shortage_becomes_next_tick_population_pressure_without_direct_muta
     assert stressed_dry.total < control_dry.total
     assert stressed_dry.migration_pressure > control_dry.migration_pressure
 
+    pressure_event = next(
+        event
+        for event in stressed.events
+        if event.source == "economy"
+        and event.kind == "food-security-pressure"
+        and dry.id in event.subjects
+    )
+    population_event = next(
+        event for event in stressed.events if event.source == "population" and dry.id in event.subjects
+    )
+    assert pressure_event.cause_event_ids == (shortage_event.id,)
+    assert population_event.cause_event_ids == (pressure_event.id,)
+
+    history = EventHistory.from_ticks((economy_tick, stressed))
+    why = history.why(population_event.id)
+    assert tuple(item.event_id for item in why) == (
+        shortage_event.id,
+        pressure_event.id,
+        population_event.id,
+    )
+
 
 def test_recovery_clears_shortage_and_rebuilds_food_security_pressure() -> None:
     world = _initialized_world(seed=73)
@@ -153,7 +183,9 @@ def test_recovery_clears_shortage_and_rebuilds_food_security_pressure() -> None:
     engine = SimulationEngine((PopulationDomain(), EconomyDomain()))
 
     shortage_tick = SimulationEngine((EconomyDomain(),)).step(world)
-    shortage_pressure = population_food_pressure_input(shortage_tick.world)
+    shortage_pressure = population_food_pressure_input(
+        shortage_tick.world, events=shortage_tick.events
+    )
     assert shortage_pressure is not None
     stressed = engine.step(shortage_tick.world, inputs=(shortage_pressure,))
     assert stressed.world.population is not None
@@ -179,13 +211,17 @@ def test_recovery_clears_shortage_and_rebuilds_food_security_pressure() -> None:
     assert recovered.world.economy is not None
     recovered_food = recovered.world.economy.region(dry.id).resource("food")
     assert recovered_food.shortage_severity == 0.0
-    assert any(
-        event.source == "economy" and event.kind == "resource-recovery" and dry.id in event.subjects
+    recovery_event = next(
+        event
         for event in recovered.events
+        if event.source == "economy" and event.kind == "resource-recovery" and dry.id in event.subjects
     )
 
-    recovery_pressure = population_food_pressure_input(recovered.world)
+    recovery_pressure = population_food_pressure_input(recovered.world, events=recovered.events)
     assert recovery_pressure is not None
+    dry_recovery = next(change for change in recovery_pressure.changes if change.target == dry.id)
+    assert dry_recovery.cause_event_ids == (recovery_event.id,)
+
     restored = engine.step(recovered.world, inputs=(recovery_pressure,))
     assert restored.world.population is not None
     assert restored.world.population.region(dry.id).needs.food_security == pytest.approx(1.0)
