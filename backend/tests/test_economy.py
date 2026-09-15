@@ -14,6 +14,7 @@ from cliova.simulation.history import EventHistory
 from cliova.simulation.types import (
     EconomyDomainState,
     EntityId,
+    FoodReserveState,
     RegionalEconomyState,
     SimulationChange,
     SimulationInput,
@@ -37,7 +38,12 @@ def _with_food_stockpile(world: WorldState, region_id: EntityId, amount: float) 
     regional = regions[index]
     resources = list(regional.resources)
     food_index = next(i for i, resource in enumerate(resources) if resource.resource == "food")
-    resources[food_index] = resources[food_index].model_copy(update={"stockpile": amount})
+    resources[food_index] = resources[food_index].model_copy(
+        update={
+            "stockpile": amount,
+            "food_reserves": FoodReserveState(perishable=amount),
+        }
+    )
     regions[index] = RegionalEconomyState(region_id=region_id, resources=tuple(resources))
     return world.model_copy(update={"economy": EconomyDomainState(regions=tuple(regions))})
 
@@ -88,30 +94,30 @@ def test_population_size_drives_resource_demand() -> None:
     assert large_food.production < 2.0 * small_food.production
 
 
-def test_reserves_accumulate_then_deplete_before_shortage() -> None:
+def test_reserves_deplete_before_shortage() -> None:
     world = _initialized_world(seed=67)
     assert world.geography is not None
     dry = world.geography.region("dry-basin")
     world = _with_food_stockpile(world, dry.id, 1_000.0)
     engine = SimulationEngine((EconomyDomain(),))
 
-    first = engine.step(world)
-    second = engine.step(first.world)
-    third = engine.step(second.world)
-    assert first.world.economy is not None
-    assert second.world.economy is not None
-    assert third.world.economy is not None
+    previous_stockpile = 1_000.0
+    shortage_food = None
+    for _ in range(10):
+        tick = engine.step(world)
+        assert tick.world.economy is not None
+        food = tick.world.economy.region(dry.id).resource("food")
+        assert food.stockpile <= previous_stockpile
+        if food.shortage_severity > 0.0:
+            shortage_food = food
+            break
+        assert food.stockpile > 0.0
+        previous_stockpile = food.stockpile
+        world = tick.world
 
-    first_food = first.world.economy.region(dry.id).resource("food")
-    second_food = second.world.economy.region(dry.id).resource("food")
-    third_food = third.world.economy.region(dry.id).resource("food")
-    assert first_food.stockpile < 1_000.0
-    assert second_food.stockpile < first_food.stockpile
-    assert first_food.shortage_severity == 0.0
-    assert second_food.shortage_severity == 0.0
-    assert third_food.stockpile == 0.0
-    assert third_food.deficit > 0.0
-    assert third_food.shortage_severity > 0.0
+    assert shortage_food is not None
+    assert shortage_food.stockpile == 0.0
+    assert shortage_food.deficit > 0.0
 
 
 def test_food_shortage_becomes_next_tick_population_pressure_without_direct_mutation() -> None:
@@ -238,10 +244,11 @@ def test_shortage_event_keeps_causal_reserve_loss_chain() -> None:
     world = _initialized_world(seed=79)
     assert world.geography is not None
     dry = world.geography.region("dry-basin")
-    world = _with_food_stockpile(world, dry.id, 1_000.0)
+    world = _with_food_stockpile(world, dry.id, 1_500.0)
     first = SimulationEngine((EconomyDomain(),)).step(world)
     assert first.world.economy is not None
-    assert first.world.economy.region(dry.id).resource("food").shortage_severity == 0.0
+    first_food = first.world.economy.region(dry.id).resource("food")
+    assert first_food.shortage_severity == 0.0
 
     reserve_loss = SimulationInput(
         source="scenario",
@@ -252,7 +259,7 @@ def test_shortage_event_keeps_causal_reserve_loss_chain() -> None:
             SimulationChange(
                 source="economy",
                 key=resource_change_key("food", "stockpile"),
-                delta=-500.0,
+                delta=-first_food.stockpile,
                 reason="food reserves were lost",
                 target=dry.id,
             ),
