@@ -25,7 +25,9 @@ def create_development_world(*, seed: int, world_key: str) -> WorldState:
     first vertical slice has one valid directive target without inventing production setup UX.
     """
 
-    world = initialize_economy(initialize_population(create_starter_world(seed=seed, world_key=world_key)))
+    world = initialize_economy(
+        initialize_population(create_starter_world(seed=seed, world_key=world_key))
+    )
     assert world.geography is not None
     region_id = world.geography.region("fertile-lowlands").id
     society_id = entity_id(world.id, "society", "river-council")
