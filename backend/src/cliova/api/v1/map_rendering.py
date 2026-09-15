@@ -82,9 +82,7 @@ def _worldengine_svg(world: WorldState, generation: PhysicalGenerationMetadata) 
     source = escape(
         f"{generation.generator}:{generation.adapter_version}:{generation.upstream_version}"
     )
-    metadata = (
-        f"Cliova derived strategic terrain; render={MAP_RENDER_VERSION}; source={source}"
-    )
+    metadata = f"Cliova derived strategic terrain; render={MAP_RENDER_VERSION}; source={source}"
     texture_seed = (generation.worldengine_seed % 997) + 1
     return (
         '<svg xmlns="http://www.w3.org/2000/svg" '
@@ -96,7 +94,7 @@ def _worldengine_svg(world: WorldState, generation: PhysicalGenerationMetadata) 
         "<defs>"
         '<filter id="terrain-grade" x="0" y="0" width="100%" height="100%">'
         '<feColorMatrix type="saturate" values="1.18"/>'
-        '<feComponentTransfer>'
+        "<feComponentTransfer>"
         '<feFuncR type="gamma" amplitude="1.06" exponent="0.92" offset="0.01"/>'
         '<feFuncG type="gamma" amplitude="1.06" exponent="0.92" offset="0.01"/>'
         '<feFuncB type="gamma" amplitude="1.03" exponent="0.96" offset="0"/>'
@@ -135,8 +133,7 @@ def _fallback_svg(world: WorldState) -> str:
         for run in geometry.runs:
             width = run.x_stop - run.x_start
             layers.append(
-                f'<rect x="{run.x_start}" y="{run.y}" width="{width}" height="1" '
-                f'fill="{fill}"/>'
+                f'<rect x="{run.x_start}" y="{run.y}" width="{width}" height="1" fill="{fill}"/>'
             )
 
     return (
