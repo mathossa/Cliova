@@ -22,7 +22,7 @@ from cliova.api.v1.models import (
 )
 from cliova.simulation.types import EntityId, RegionPresentationGeometry, WorldState
 
-MAP_RENDER_VERSION = "strategic-worldengine-ancient-v2"
+MAP_RENDER_VERSION = "strategic-worldengine-terrain-v3"
 MAP_COORDINATE_SYSTEM = "cliova-grid-bottom-left-v1"
 
 
