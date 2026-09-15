@@ -16,7 +16,9 @@ from typing import Any
 
 import numpy as np
 from numpy.typing import NDArray
-from worldengine.draw import draw_ancientmap_on_file  # type: ignore[import-untyped]
+from worldengine.draw import draw_satellite  # type: ignore[import-untyped]
+from worldengine.drawing_functions import draw_rivers_on_image  # type: ignore[import-untyped]
+from worldengine.image_io import PNGWriter  # type: ignore[import-untyped]
 from worldengine.plates import world_gen  # type: ignore[import-untyped]
 from worldengine.step import Step  # type: ignore[import-untyped]
 
@@ -140,22 +142,19 @@ def generate_physical_world(
 
 
 @lru_cache(maxsize=16)
-def render_ancient_map_png(
+def render_strategic_terrain_png(
     *,
     seed: int,
     config: WorldEngineConfig = DEFAULT_WORLDENGINE_CONFIG,
-    resize_factor: int = 6,
 ) -> bytes:
-    """Regenerate and render a disposable deterministic WorldEngine ancient-map PNG.
+    """Regenerate a disposable deterministic WorldEngine terrain PNG.
 
-    The returned bytes are presentation-only cache material. Re-running upstream from the
-    persisted seed/config never mutates authoritative Cliova state, and the upstream World
-    remains confined to this adapter.
+    WorldEngine's satellite renderer already owns biome colour, elevation-aware relief,
+    ice, lakes and river shading. Cliova reuses that renderer rather than maintaining a
+    second terrain algorithm; the browser adds only presentation styling and overlays.
     """
     if type(seed) is not int:
         raise ValueError("seed must be an integer")
-    if type(resize_factor) is not int or resize_factor <= 0:
-        raise ValueError("resize_factor must be a positive integer")
 
     upstream_seed = derive_worldengine_seed(seed)
     with _WORLDENGINE_RNG_LOCK:
@@ -163,22 +162,14 @@ def render_ancient_map_png(
         np.random.seed(upstream_seed)
         try:
             _, world = _generate_upstream_world(seed=seed, config=config)
-            # Ancient-map rendering uses its own seeded RandomState for most drawing, but an
-            # upstream mountain helper still touches NumPy's legacy RNG. Seed it explicitly.
-            np.random.seed(upstream_seed)
+            target = PNGWriter.rgba_from_dimensions(world.width, world.height)
+            draw_satellite(world, target)
+            # WorldEngine's satellite renderer colours rivers subtly. Reuse its dedicated
+            # river overlay once more so major water features remain readable at strategic scale.
+            draw_rivers_on_image(world, target, factor=1)
             with TemporaryDirectory(prefix="cliova-map-") as directory:
                 output = Path(directory) / "world.png"
-                draw_ancientmap_on_file(
-                    world,
-                    str(output),
-                    resize_factor=resize_factor,
-                    sea_color=(25, 54, 65, 255),
-                    draw_biome=True,
-                    draw_rivers=True,
-                    draw_mountains=True,
-                    draw_outer_land_border=True,
-                    verbose=False,
-                )
+                target.complete(str(output))
                 return output.read_bytes()
         finally:
             np.random.set_state(previous_state)
