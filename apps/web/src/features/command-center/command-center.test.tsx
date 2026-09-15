@@ -215,6 +215,15 @@ test("directive submission and manual tick revalidate lifecycle state", async ()
     async getRegions() {
       return { ...regions, tick };
     },
+    async getSettlements() {
+      throw new Error("not used in Command Center test");
+    },
+    async getSettlement() {
+      throw new Error("not used in Command Center test");
+    },
+    async getSettlementMap() {
+      throw new Error("not used in Command Center test");
+    },
     async getHistory() {
       return history;
     },
