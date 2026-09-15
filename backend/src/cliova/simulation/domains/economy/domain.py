@@ -224,48 +224,52 @@ class EconomyDomain:
         return world.model_copy(update={"economy": economy})
 
 
-def population_food_pressure_input(
+def population_food_pressure_inputs(
     world: WorldState,
     *,
     events: Iterable[SimulationEvent] = (),
-) -> SimulationInput | None:
-    """Translate food shortage into population-owned next-tick need changes.
+) -> tuple[SimulationInput, ...]:
+    """Translate food shortage into region-scoped population-owned next-tick inputs.
 
-    Economy supplies desired food-security conditions through the population boundary
-    instead of reading or mutating population need internals. Relevant shortage or
-    recovery events are retained as causes for the next tick's pressure input.
+    One input is produced per changed region so the materialized pressure event retains
+    only that region's shortage or recovery causes. Economy supplies desired conditions
+    through the population boundary and never reads or mutates population need internals.
     """
     if world.economy is None or world.population is None:
-        return None
+        return ()
 
     event_batch = tuple(events)
-    targets: list[PopulationNeedTarget] = []
+    inputs: list[SimulationInput] = []
     for regional_economy in world.economy.regions:
         try:
             food = regional_economy.resource("food")
         except KeyError:
             continue
 
-        targets.append(
-            PopulationNeedTarget(
-                region_id=regional_economy.region_id,
-                key=FOOD_SECURITY,
-                value=round(1.0 - food.shortage_severity, 6),
-                reason=(
-                    f"food shortage severity {food.shortage_severity:.3f} "
-                    "changed regional food security"
+        pressure = population_need_input(
+            world,
+            source="economy",
+            kind="food-security-pressure",
+            reason="Regional food availability changed population food security",
+            targets=(
+                PopulationNeedTarget(
+                    region_id=regional_economy.region_id,
+                    key=FOOD_SECURITY,
+                    value=round(1.0 - food.shortage_severity, 6),
+                    reason=(
+                        f"food shortage severity {food.shortage_severity:.3f} "
+                        "changed regional food security"
+                    ),
+                    cause_event_ids=_food_pressure_causes(
+                        event_batch, regional_economy.region_id
+                    ),
                 ),
-                cause_event_ids=_food_pressure_causes(event_batch, regional_economy.region_id),
-            )
+            ),
         )
+        if pressure is not None:
+            inputs.append(pressure)
 
-    return population_need_input(
-        world,
-        source="economy",
-        kind="food-security-pressure",
-        reason="Regional food availability changed population food security",
-        targets=targets,
-    )
+    return tuple(inputs)
 
 
 def resource_change_key(resource: ResourceKind, field: str) -> str:
