@@ -5,7 +5,11 @@ presence, settlement and status state into browser-facing game coordinates witho
 WorldEngine objects or asking the browser to reproduce simulation formulas.
 """
 
+from collections.abc import Iterable
 from typing import cast
+
+from shapely.geometry import MultiPolygon, Polygon, box
+from shapely.ops import unary_union
 
 from cliova.api.v1.models import (
     EntityKindDto,
@@ -16,31 +20,49 @@ from cliova.api.v1.models import (
     TemporaryPresence,
     WorldMapResponse,
 )
-from cliova.simulation.types import EntityId, RasterRun, RegionPresentationGeometry, WorldState
+from cliova.simulation.types import EntityId, RegionPresentationGeometry, WorldState
 
-MAP_RENDER_VERSION = "strategic-svg-v1"
+MAP_RENDER_VERSION = "strategic-worldengine-ancient-v2"
 MAP_COORDINATE_SYSTEM = "cliova-grid-bottom-left-v1"
 
 
-def _run_ring(run: RasterRun, *, height: int) -> tuple[tuple[float, float], ...]:
-    """Convert #59's top-left raster row into Leaflet-friendly bottom-left game coordinates."""
-    bottom = float(height - run.y - 1)
-    top = bottom + 1.0
-    left = float(run.x_start)
-    right = float(run.x_stop)
-    return (
-        (left, bottom),
-        (right, bottom),
-        (right, top),
-        (left, top),
-        (left, bottom),
-    )
+def _run_bounds(
+    geometry: RegionPresentationGeometry, *, height: int
+) -> Iterable[tuple[float, float, float, float]]:
+    """Yield persisted top-left raster runs as bottom-left game-coordinate rectangles."""
+    for run in geometry.runs:
+        bottom = float(height - run.y - 1)
+        yield (float(run.x_start), bottom, float(run.x_stop), bottom + 1.0)
+
+
+def _ring(coordinates: Iterable[tuple[float, float]]) -> tuple[tuple[float, float], ...]:
+    return tuple((float(x), float(y)) for x, y in coordinates)
+
+
+def _polygon_rings(polygon: Polygon) -> tuple[tuple[tuple[float, float], ...], ...]:
+    return (_ring(polygon.exterior.coords), *(_ring(interior.coords) for interior in polygon.interiors))
 
 
 def _region_geometry(geometry: RegionPresentationGeometry, *, height: int) -> MapMultiPolygon:
-    return MapMultiPolygon(
-        coordinates=tuple(((_run_ring(run, height=height)),) for run in geometry.runs)
-    )
+    """Dissolve raster runs into proper contiguous polygons using Shapely/GEOS."""
+    rectangles = [box(*bounds) for bounds in _run_bounds(geometry, height=height)]
+    if not rectangles:
+        raise ValueError("presentation region has no raster geometry")
+
+    dissolved = unary_union(rectangles)
+    if isinstance(dissolved, Polygon):
+        polygons = (dissolved,)
+    elif isinstance(dissolved, MultiPolygon):
+        polygons = tuple(
+            sorted(
+                dissolved.geoms,
+                key=lambda item: (item.bounds[1], item.bounds[0], item.bounds[3], item.bounds[2]),
+            )
+        )
+    else:
+        raise ValueError("presentation region did not dissolve to polygon geometry")
+
+    return MapMultiPolygon(coordinates=tuple(_polygon_rings(polygon) for polygon in polygons))
 
 
 def _centroid(geometry: RegionPresentationGeometry, *, height: int) -> tuple[float, float]:
