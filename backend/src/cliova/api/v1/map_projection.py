@@ -40,7 +40,10 @@ def _ring(coordinates: Iterable[tuple[float, float]]) -> tuple[tuple[float, floa
 
 
 def _polygon_rings(polygon: Polygon) -> tuple[tuple[tuple[float, float], ...], ...]:
-    return (_ring(polygon.exterior.coords), *(_ring(interior.coords) for interior in polygon.interiors))
+    return (
+        _ring(polygon.exterior.coords),
+        *(_ring(interior.coords) for interior in polygon.interiors),
+    )
 
 
 def _region_geometry(geometry: RegionPresentationGeometry, *, height: int) -> MapMultiPolygon:
