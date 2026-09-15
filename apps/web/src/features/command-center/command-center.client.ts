@@ -34,9 +34,10 @@ export class LiveCommandCenterClient implements CommandCenterClient {
     if (!selected) return { kind: "missing", worlds, worldId: preferredWorldId ?? "" };
 
     const startTick = Math.max(0, selected.tick - RECENT_HISTORY_TICKS);
-    const [summary, regions, history, directives] = await Promise.all([
+    const [summary, regions, map, history, directives] = await Promise.all([
       this.api.getWorld(selected.id),
       this.api.getRegions(selected.id),
+      this.api.getWorldMap(selected.id),
       this.api.getHistory(selected.id, { startTick }),
       this.api.getDirectives(selected.id),
     ]);
@@ -45,7 +46,7 @@ export class LiveCommandCenterClient implements CommandCenterClient {
       kind: "ready",
       worlds,
       worldId: selected.id,
-      data: { summary, regions, history, directives },
+      data: { summary, regions, map, history, directives },
     };
   }
 
