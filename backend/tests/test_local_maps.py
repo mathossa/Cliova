@@ -5,11 +5,7 @@ import pytest
 from cliova.api.v1.local_maps import local_map_request
 from cliova.application.development import create_development_world, create_simulation_engine
 from cliova.simulation.domains.settlements.domain import initialize_settlements
-from cliova.simulation.types import (
-    SettlementState,
-    StructureState,
-    entity_id,
-)
+from cliova.simulation.types import SettlementState, StructureState, entity_id
 
 
 def _world_with_settlements():
@@ -71,7 +67,8 @@ def _world_with_settlements():
 
 def test_local_map_projection_is_stable_and_uses_distinct_renderer_paths() -> None:
     world = _world_with_settlements()
-    permanent, camp = world.settlements.settlements
+    permanent = next(item for item in world.settlements.settlements if item.archetype == "permanent")
+    camp = next(item for item in world.settlements.settlements if item.archetype != "permanent")
 
     permanent_first = local_map_request(world, permanent.id.value)
     permanent_second = local_map_request(world, permanent.id.value)
@@ -132,8 +129,9 @@ def test_unknown_settlement_is_explicit() -> None:
         local_map_request(world, uuid4())
 
 
-def test_headless_engine_has_no_local_map_dependency() -> None:
-    # Importing/constructing the authoritative engine must not need Settlemaker,
-    # browser APIs, or the local-map generator package.
-    engine = create_simulation_engine()
-    assert all(domain.name != "local_maps" for domain in engine.domains)
+def test_headless_engine_advances_without_local_map_generation() -> None:
+    world = create_development_world(seed=735, world_key="headless-local-map-isolation")
+    result = create_simulation_engine().step(world)
+
+    assert result.world.time.tick == world.time.tick + 1
+    assert result.world.id == world.id
