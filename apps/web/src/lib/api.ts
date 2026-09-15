@@ -10,6 +10,7 @@ import type {
   QueuedDirective,
   RegionStatusResponse,
   WorldListResponse,
+  WorldMapResponse,
   WorldSummary,
 } from "../../../../packages/contracts/v1";
 
@@ -31,13 +32,17 @@ export type {
   HistoryEvent,
   HistoryResponse,
   ManualTickResponse,
+  MapRegionFeature,
   PressureStatus,
   QueuedDirective,
   RegionStatus,
   RegionStatusResponse,
+  SettlementMapMarker,
   SocietySummary,
+  TemporaryPresence,
   WorldListItem,
   WorldListResponse,
+  WorldMapResponse,
   WorldSummary,
 } from "../../../../packages/contracts/v1";
 
@@ -53,6 +58,7 @@ export interface CliovaApi {
   createDevelopmentWorld(request: CreateDevelopmentWorldRequest): Promise<WorldSummary>;
   getWorld(worldId: string): Promise<WorldSummary>;
   getRegions(worldId: string): Promise<RegionStatusResponse>;
+  getWorldMap(worldId: string): Promise<WorldMapResponse>;
   getHistory(worldId: string, query?: HistoryQuery): Promise<HistoryResponse>;
   getDirectives(worldId: string): Promise<DirectiveListResponse>;
   getAttentionItems(worldId: string): Promise<AttentionItemsResponse>;
@@ -68,7 +74,11 @@ export class CliovaApiError extends Error {
 
   constructor(
     message: string,
-    { status, code, details = [] }: { status: number; code: string; details?: ApiErrorResponse["error"]["details"] },
+    { status, code, details = [] }: {
+      status: number;
+      code: string;
+      details?: ApiErrorResponse["error"]["details"];
+    },
     options?: ErrorOptions,
   ) {
     super(message, options);
@@ -110,6 +120,10 @@ export class HttpCliovaApiClient implements CliovaApi {
     return this.request(`/api/v1/worlds/${encodeURIComponent(worldId)}/regions`);
   }
 
+  getWorldMap(worldId: string): Promise<WorldMapResponse> {
+    return this.request(`/api/v1/worlds/${encodeURIComponent(worldId)}/map`);
+  }
+
   getHistory(worldId: string, query: HistoryQuery = {}): Promise<HistoryResponse> {
     const params = new URLSearchParams();
     if (query.startTick !== undefined) params.set("start_tick", String(query.startTick));
@@ -127,7 +141,9 @@ export class HttpCliovaApiClient implements CliovaApi {
   }
 
   getDecisionOpportunities(worldId: string): Promise<DecisionOpportunityListResponse> {
-    return this.request(`/api/v1/worlds/${encodeURIComponent(worldId)}/decision-opportunities?status=open`);
+    return this.request(
+      `/api/v1/worlds/${encodeURIComponent(worldId)}/decision-opportunities?status=open`,
+    );
   }
 
   submitDirective(worldId: string, request: DirectiveSubmissionRequest): Promise<QueuedDirective> {

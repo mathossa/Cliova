@@ -6,9 +6,9 @@ import { DirectivesPanel } from "./directives-panel";
 import { HistoryFeed } from "./history-feed";
 import { LiveStatusPanel } from "./live-status-panels";
 import { RegionOverview } from "./region-overview";
+import { StrategicMap } from "./strategic-map";
 import { WorldStatus } from "./world-status";
 import {
-  assetPaths,
   modules,
   type CommandCenterModule,
   type ModuleId,
@@ -25,7 +25,9 @@ export function CommandCenter({ world, worlds, actions }: CommandCenterProps) {
     "> status",
     `Connected to ${world.connection}. World ${world.id.slice(0, 8)} is at year ${world.year}, tick ${world.tick}.`,
   ]);
-  const [selectedRegion, setSelectedRegion] = useState(world.regions[0]?.id ?? "");
+  const [selectedRegion, setSelectedRegion] = useState(
+    world.societies[0]?.regionId ?? world.regions[0]?.id ?? "",
+  );
   const [actionError, setActionError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [ticking, setTicking] = useState(false);
@@ -35,7 +37,11 @@ export function CommandCenter({ world, worlds, actions }: CommandCenterProps) {
   const [newWorldError, setNewWorldError] = useState<string | null>(null);
 
   const activeDefinition = modules.find((module) => module.id === activeModule) ?? modules[0]!;
-  const selectedRegionView = world.regions.find((region) => region.id === selectedRegion) ?? world.regions[0] ?? null;
+  const societyRegionId = world.societies[0]?.regionId;
+  const selectedRegionView = world.regions.find((region) => region.id === selectedRegion)
+    ?? world.regions.find((region) => region.id === societyRegionId)
+    ?? world.regions[0]
+    ?? null;
   const selectedRegionId = selectedRegionView?.id ?? "";
 
   function submitCommand(event: FormEvent<HTMLFormElement>) {
@@ -202,29 +208,18 @@ export function CommandCenter({ world, worlds, actions }: CommandCenterProps) {
           <div className="map-panel panel">
             <div className="panel-heading map-heading">
               <div>
-                <span className="eyebrow">Presentation layer</span>
-                <h2>Operational map</h2>
+                <span className="eyebrow">Generated strategic geography</span>
+                <h2>World / region map</h2>
               </div>
-              <span className="placeholder-badge">non-authoritative</span>
+              <span className={world.map.available ? "live-badge" : "placeholder-badge"}>
+                {world.map.available ? "interactive" : "unavailable"}
+              </span>
             </div>
-
-            <div
-              className="map-canvas"
-              style={{
-                backgroundImage: `linear-gradient(180deg, rgba(8, 14, 19, .08), rgba(8, 14, 19, .28)), url(${assetPaths.worldMap})`,
-              }}
-            >
-              <div className="map-fallback-grid" aria-hidden="true" />
-              <div className="map-api-note">
-                <strong>Strategic artwork</strong>
-                <span>API v1 does not expose map coordinates. No simulation positions are inferred in the browser.</span>
-              </div>
-              <div className="map-selection">
-                <span>Selected region</span>
-                <strong>{selectedRegionView?.label ?? "No region"}</strong>
-                <small>{selectedRegionView ? `${selectedRegionView.terrain} · ${selectedRegionView.biome}` : "No region status available"}</small>
-              </div>
-            </div>
+            <StrategicMap
+              world={world}
+              selectedRegionId={selectedRegionId}
+              onSelectRegion={setSelectedRegion}
+            />
           </div>
 
           <div className="dashboard-row">
@@ -272,13 +267,13 @@ export function CommandCenter({ world, worlds, actions }: CommandCenterProps) {
           <section className="panel new-world-dialog" role="dialog" aria-modal="true" aria-labelledby="new-world-title">
             <div className="panel-heading compact">
               <div>
-                <span className="eyebrow">Development world</span>
+                <span className="eyebrow">Generated development world</span>
                 <h2 id="new-world-title">Create new world</h2>
               </div>
               <button type="button" className="dialog-close" onClick={() => setShowCreateWorld(false)} disabled={creatingWorld} aria-label="Close create world dialog">×</button>
             </div>
             <form className="new-world-form" onSubmit={createDevelopmentWorld}>
-              <p>Create another persisted development world. It will become the active world immediately.</p>
+              <p>Create a persisted #59-generated development world. It will become the active world immediately.</p>
               <label>
                 Seed
                 <input value={newWorldSeed} onChange={(event) => setNewWorldSeed(event.target.value)} inputMode="numeric" autoFocus />
@@ -286,7 +281,7 @@ export function CommandCenter({ world, worlds, actions }: CommandCenterProps) {
               {newWorldError && <p className="action-error" role="alert">{newWorldError}</p>}
               <div className="dialog-actions">
                 <button type="button" onClick={() => setShowCreateWorld(false)} disabled={creatingWorld}>Cancel</button>
-                <button type="submit" disabled={creatingWorld}>{creatingWorld ? "Creating…" : "Create world"}</button>
+                <button type="submit" disabled={creatingWorld}>{creatingWorld ? "Creating…" : "Create generated world"}</button>
               </div>
             </form>
           </section>

@@ -5,6 +5,7 @@ import type {
   HistoryResponse,
   RegionStatusResponse,
   SocietySummary,
+  WorldMapResponse,
   WorldSummary,
 } from "../../lib/api";
 import type {
@@ -20,6 +21,7 @@ import type {
 export type CommandCenterBundle = {
   summary: WorldSummary;
   regions: RegionStatusResponse;
+  map: WorldMapResponse;
   history: HistoryResponse;
   directives: DirectiveListResponse;
   attention: AttentionItemsResponse;
@@ -30,7 +32,7 @@ const integerFormatter = new Intl.NumberFormat("en-US", { maximumFractionDigits:
 const decimalFormatter = new Intl.NumberFormat("en-US", { maximumFractionDigits: 3 });
 
 export function toWorldSnapshot(bundle: CommandCenterBundle): WorldSnapshot {
-  const { summary, regions, history, directives, attention, decisions } = bundle;
+  const { summary, regions, map, history, directives, attention, decisions } = bundle;
   const population = formatInteger(summary.population_total);
   const shortage = formatNumber(summary.food_shortage_severity);
   const regionViews = regions.regions.map(toRegionView);
@@ -62,7 +64,8 @@ export function toWorldSnapshot(bundle: CommandCenterBundle): WorldSnapshot {
       id: pressure.id,
       label: formatLabel(pressure.key),
       regionId: pressure.region_id,
-      regionLabel: regionViews.find((region) => region.id === pressure.region_id)?.label ?? `Region ${shortId(pressure.region_id)}`,
+      regionLabel: regionViews.find((region) => region.id === pressure.region_id)?.label
+        ?? `Region ${shortId(pressure.region_id)}`,
       milestone: formatLabel(pressure.milestone),
       intensity: formatNumber(pressure.intensity),
       ageTicks: pressure.age_ticks,
@@ -113,6 +116,7 @@ export function toWorldSnapshot(bundle: CommandCenterBundle): WorldSnapshot {
       status: directive.status,
       progress: formatNumber(directive.progress),
     })),
+    map,
   };
 }
 
@@ -120,7 +124,8 @@ function toSocietyView(society: SocietySummary, regions: RegionView[]): SocietyV
   const kind = society.subject.kind === "society" || society.subject.kind === "polity"
     ? society.subject.kind
     : "unsupported";
-  const regionLabel = regions.find((region) => region.id === society.region_id)?.label ?? `Region ${shortId(society.region_id)}`;
+  const regionLabel = regions.find((region) => region.id === society.region_id)?.label
+    ?? `Region ${shortId(society.region_id)}`;
   const kindLabel = kind === "unsupported" ? "Society" : formatLabel(kind);
   return {
     id: society.subject.id,
@@ -137,7 +142,7 @@ function toSocietyView(society: SocietySummary, regions: RegionView[]): SocietyV
 function toRegionView(region: RegionStatusResponse["regions"][number]): RegionView {
   return {
     id: region.id,
-    label: formatLabel(region.key),
+    label: regionDisplayLabel(region.key),
     terrain: formatLabel(region.terrain),
     biome: formatLabel(region.biome),
     population: formatInteger(region.population),
@@ -146,6 +151,12 @@ function toRegionView(region: RegionStatusResponse["regions"][number]): RegionVi
     climatePressure: formatNumber(region.climate_pressure),
     food: toFoodView(region.food),
   };
+}
+
+function regionDisplayLabel(key: string): string {
+  const generated = /^worldengine-v\d+:(\d+)$/.exec(key);
+  if (generated) return `Region ${Number(generated[1]) + 1}`;
+  return formatLabel(key);
 }
 
 function toHistoryFeedItem(
@@ -166,7 +177,23 @@ function toHistoryFeedItem(
     source: event.source,
     technicalDetail: event.reason,
     causeCount: event.cause_event_ids.length,
+    regionIds: historyRegionIds(event, societies),
   };
+}
+
+function historyRegionIds(
+  event: HistoryResponse["events"][number],
+  societies: SocietyView[],
+): string[] {
+  const regionIds = new Set<string>();
+  for (const subject of event.subjects) {
+    if (subject.kind === "region") regionIds.add(subject.id);
+    if (subject.kind === "society" || subject.kind === "polity") {
+      const society = societies.find((item) => item.id === subject.id);
+      if (society) regionIds.add(society.regionId);
+    }
+  }
+  return [...regionIds];
 }
 
 function humanHistoryText(kind: string, subject?: string): string {
@@ -214,9 +241,25 @@ function humanHistoryText(kind: string, subject?: string): string {
 }
 
 function historyTone(kind: string): DisplayTone {
-  if (kind.includes("crisis") || kind.includes("shortage") || kind.includes("failed")) return "critical";
-  if (kind.includes("emerging") || kind.includes("elevated") || kind.includes("delayed") || kind.includes("resisted")) return "warning";
-  if (kind.includes("surplus") || kind.includes("recovering") || kind.includes("resolved") || kind.includes("completed")) return "positive";
+  if (kind.includes("crisis") || kind.includes("shortage") || kind.includes("failed")) {
+    return "critical";
+  }
+  if (
+    kind.includes("emerging")
+    || kind.includes("elevated")
+    || kind.includes("delayed")
+    || kind.includes("resisted")
+  ) {
+    return "warning";
+  }
+  if (
+    kind.includes("surplus")
+    || kind.includes("recovering")
+    || kind.includes("resolved")
+    || kind.includes("completed")
+  ) {
+    return "positive";
+  }
   return "neutral";
 }
 
@@ -226,16 +269,20 @@ function historySubjectLabel(
   regions: RegionView[],
   societies: SocietyView[],
 ): string | undefined {
-  if (kind === "region") return regions.find((region) => region.id === id)?.label ?? `Region ${shortId(id)}`;
+  if (kind === "region") {
+    return regions.find((region) => region.id === id)?.label ?? `Region ${shortId(id)}`;
+  }
   if (kind === "society" || kind === "polity") {
-    return societies.find((society) => society.id === id)?.label ?? `${formatLabel(kind)} ${shortId(id)}`;
+    return societies.find((society) => society.id === id)?.label
+      ?? `${formatLabel(kind)} ${shortId(id)}`;
   }
   if (kind === "world") return "The world";
   return undefined;
 }
 
 function directiveTargetLabel(targetId: string, societies: SocietyView[]): string {
-  return societies.find((society) => society.id === targetId)?.label ?? `Society ${shortId(targetId)}`;
+  return societies.find((society) => society.id === targetId)?.label
+    ?? `Society ${shortId(targetId)}`;
 }
 
 function normalizeKind(value: string): string {

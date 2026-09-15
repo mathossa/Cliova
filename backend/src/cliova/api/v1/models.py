@@ -14,6 +14,10 @@ DirectiveStatusDto = Literal[
 PressureMilestoneDto = Literal["emerging", "elevated", "crisis", "recovering", "resolved"]
 AttentionPriorityDto = Literal["informational", "important", "urgent"]
 DecisionOpportunityStatusDto = Literal["open", "responded", "expired"]
+MapVisibilityDto = Literal["full"]
+SettlementArchetypeDto = Literal["permanent", "seasonal_camp", "temporary_camp"]
+SettlementStatusDto = Literal["active", "dormant", "abandoned", "destroyed"]
+MapPositionPrecisionDto = Literal["region_centroid"]
 NonNegativeStrictInt = Annotated[int, Field(strict=True, ge=0)]
 
 
@@ -80,6 +84,70 @@ class RegionStatus(ApiModel):
     pressures: tuple[PressureStatus, ...] = ()
 
 
+class MapMultiPolygon(ApiModel):
+    """GeoJSON-compatible game-coordinate geometry; values are never earth lat/lon."""
+
+    type: Literal["MultiPolygon"] = "MultiPolygon"
+    coordinates: tuple[
+        tuple[tuple[tuple[float, float], ...], ...],
+        ...,
+    ]
+
+
+class TemporaryPresence(ApiModel):
+    society_id: UUID
+    production_method: str
+    access_share: float
+
+
+class MapRegionFeature(ApiModel):
+    id: UUID
+    key: str
+    centroid: tuple[float, float]
+    geometry: MapMultiPolygon
+    terrain: str
+    biome: str
+    surface: str
+    land_fraction: float
+    mean_elevation: float
+    population: int | None = None
+    food_shortage_severity: float | None = None
+    pressure_intensity: float | None = None
+    core_society_ids: tuple[UUID, ...] = ()
+    temporary_presence: tuple[TemporaryPresence, ...] = ()
+    visibility: MapVisibilityDto = "full"
+
+
+class SettlementMapMarker(ApiModel):
+    id: UUID
+    region_id: UUID
+    name: str
+    archetype: SettlementArchetypeDto
+    status: SettlementStatusDto
+    population_estimate: int
+    associated_subject: EntityRef | None = None
+    position: tuple[float, float]
+    position_precision: MapPositionPrecisionDto = "region_centroid"
+    structure_count: int = 0
+    local_map_path: str
+    visibility: MapVisibilityDto = "full"
+
+
+class WorldMapResponse(ApiModel):
+    world_id: UUID
+    tick: int
+    available: bool
+    unavailable_reason: str | None = None
+    render_version: str
+    coordinate_system: Literal["cliova-grid-bottom-left-v1"] = "cliova-grid-bottom-left-v1"
+    extent_width: int = 0
+    extent_height: int = 0
+    base_map_url: str | None = None
+    visibility: MapVisibilityDto = "full"
+    regions: tuple[MapRegionFeature, ...] = ()
+    settlements: tuple[SettlementMapMarker, ...] = ()
+
+
 class WorldListItem(ApiModel):
     id: UUID
     tick: int
@@ -120,6 +188,7 @@ class SocietyStatusResponse(ApiModel):
 class CreateDevelopmentWorldRequest(ApiModel):
     seed: int = Field(strict=True)
     world_key: str = Field(default="development", min_length=1, max_length=100)
+    generated_geography: bool = False
 
 
 class HistoryEvent(ApiModel):

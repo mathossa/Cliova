@@ -16,15 +16,35 @@ For each candidate record:
 
 ## Current decisions
 
+### `Leaflet/Leaflet`
+
+- **Upstream:** `Leaflet/Leaflet`; browser pan/zoom, non-Earth coordinate handling, image overlays, GeoJSON polygon interaction and markers for issue #24.
+- **Revision:** release `v1.9.4`, commit `d15112c9e8ac339f0f74f563959d0423d291308d` (inspected on 2026-09-15).
+- **License/SPDX:** `BSD-2-Clause`; verified from the release `LICENSE`.
+- **Classification:** `licensed-reusable`.
+- **Reuse mode:** `dependency`; the Command Center loads the exact `1.9.4` browser distribution from the version-pinned unpkg URL and calls public `L.CRS.Simple`, `L.imageOverlay`, `L.geoJSON`, marker and map APIs. No Leaflet implementation source is copied into Cliova.
+- **Attribution/NOTICE:** retain the Leaflet BSD-2-Clause copyright/license notice for redistribution; the notice is recorded in `THIRD_PARTY_NOTICES.md` and the map attribution identifies Leaflet at runtime.
+- **Rationale:** the exact `CRS.Simple` implementation explicitly maps flat/game coordinates directly and supplies the Y-axis inversion needed for non-Earth maps. The exact GeoJSON implementation supplies polygon conversion and feature interaction, eliminating any need for custom pan/zoom, projection or hit-testing. MapLibre/vector-tile/PostGIS infrastructure was not introduced because the current persisted #59 world is a compact fixed game grid and does not require tile streaming.
+
 ### `Mindwerks/worldengine`
 
-- **Upstream:** `Mindwerks/worldengine`; plate tectonics, elevation, climate, precipitation/humidity, hydrology/erosion and biome generation for issue #59.
-- **Revision:** release `v0.20.0`, commit `0e982b23439dbec1475da9755f774a5b2ab4dbe2` (inspected on 2026-09-15).
+- **Upstream:** `Mindwerks/worldengine`; plate tectonics, elevation, climate, precipitation/humidity, hydrology/erosion and biome generation for issue #59, plus rendering helpers reused for issue #24.
+- **Revision:** release `v0.20.0`, commit `0e982b23439dbec1475da9755f774a5b2ab4dbe2` (inspected on 2026-09-15/16).
 - **License/SPDX:** `MIT`; verified from the release's `LICENSE.txt` and package metadata.
 - **Classification:** `licensed-reusable`.
-- **Reuse mode:** `dependency`; Cliova pins `worldengine==0.20.0` and calls `worldengine.plates.world_gen` through a thin adapter. No WorldEngine implementation source is copied into Cliova.
+- **Reuse mode:** `dependency`; Cliova pins `worldengine==0.20.0`, calls `worldengine.plates.world_gen` through a thin adapter, and uses the pinned `draw_satellite` plus `draw_rivers_on_image` rendering APIs for the disposable strategic physical base. No WorldEngine implementation source or colour tables are copied into Cliova.
 - **Attribution/NOTICE:** WorldEngine's copyright and MIT permission notice must remain available with distributed copies/substantial portions. The installed dependency retains its license; Cliova also records the notice in `THIRD_PARTY_NOTICES.md`.
-- **Rationale:** the upstream implementation already provides the substantial physical-generation mechanics requested by #59, including tectonics/elevation, erosion, temperature, precipitation, humidity, hydrology and biome classification. Its drawing helpers were inspected but are not integrated because #59 stores renderer-independent presentation geometry and #24 owns browser-map rendering. WorldEngine 0.20.0 still performs one legacy global NumPy RNG draw inside `world_gen`; Cliova contains that call behind a lock with an explicit Cliova-derived seed and restores the prior RNG state.
+- **Rationale:** the upstream implementation already provides the substantial physical-generation mechanics requested by #59 and the biome/elevation/relief/water rendering needed by #24. The render path remains inside the WorldEngine adapter: it deterministically regenerates the upstream object from persisted seed/config metadata, renders a derived terrain PNG, immediately discards the upstream object, and caches only disposable presentation bytes. Authoritative Cliova simulation state remains the persisted aggregate geography and never depends on the regenerated render. Cliova adds only presentation composition, subtle colour/texture treatment and interactive overlays. WorldEngine 0.20.0 touches NumPy's legacy global RNG during generation; Cliova contains generation and rendering behind a lock with explicit Cliova-derived seeding and restores the prior RNG state.
+
+### `shapely/shapely`
+
+- **Upstream:** `shapely/shapely`; planar geometry union/dissolve for issue #24 strategic region presentation.
+- **Revision:** release `2.1.2`, tag commit `5fb639d1056888d135fe56bfaf750c9648addeec` (inspected on 2026-09-16).
+- **License/SPDX:** `BSD-3-Clause`; verified from `LICENSE.txt` at the release commit. Shapely uses GEOS, distributed under LGPL-2.1-or-later-compatible terms.
+- **Classification:** `licensed-reusable`.
+- **Reuse mode:** `dependency`; Cliova pins `shapely==2.1.2` and uses public `box` plus `unary_union` geometry APIs. No Shapely/GEOS implementation source is copied into Cliova.
+- **Attribution/NOTICE:** retain the Shapely BSD-3-Clause notice for source/binary redistribution; dependency packaging carries its own license and Cliova records the notice in `THIRD_PARTY_NOTICES.md`.
+- **Rationale:** #59 persists compact horizontal raster runs, but presenting every run as a separate GeoJSON polygon produced visible spreadsheet-like internal edges. Shapely/GEOS supplies the mature topology operation needed to dissolve those cells into contiguous region polygons without inventing custom polygonization/computational-geometry code.
 
 ### `networkx/networkx` graph Voronoi
 

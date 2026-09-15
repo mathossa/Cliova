@@ -1,17 +1,24 @@
 """Thin deterministic integration boundary around Mindwerks/worldengine.
 
 WorldEngine objects never cross this module. The adapter snapshots the physical layers
-needed by Cliova into plain NumPy arrays and restores NumPy's legacy global RNG after
-WorldEngine's one upstream global-random elevation-noise draw.
+needed by Cliova into plain NumPy arrays and can produce disposable derived presentation
+assets without exposing upstream objects to the rest of the application.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import lru_cache
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from threading import Lock
+from typing import Any
 
 import numpy as np
 from numpy.typing import NDArray
+from worldengine.draw import draw_satellite  # type: ignore[import-untyped]
+from worldengine.drawing_functions import draw_rivers_on_image  # type: ignore[import-untyped]
+from worldengine.image_io import PNGWriter  # type: ignore[import-untyped]
 from worldengine.plates import world_gen  # type: ignore[import-untyped]
 from worldengine.step import Step  # type: ignore[import-untyped]
 
@@ -78,6 +85,25 @@ def derive_worldengine_seed(seed: int) -> int:
     return min(int(rng.random() * (2**31)), (2**31) - 1)
 
 
+def _generate_upstream_world(*, seed: int, config: WorldEngineConfig) -> tuple[int, Any]:
+    """Create the upstream object while it remains confined to this adapter module."""
+    upstream_seed = derive_worldengine_seed(seed)
+    world = world_gen(
+        f"cliova-{upstream_seed}",
+        config.width,
+        config.height,
+        upstream_seed,
+        num_plates=config.num_plates,
+        ocean_level=config.ocean_level,
+        step=Step.full(),
+        gamma_curve=config.gamma_curve,
+        curve_offset=config.curve_offset,
+        fade_borders=config.fade_borders,
+        verbose=False,
+    )
+    return upstream_seed, world
+
+
 def generate_physical_world(
     *, seed: int, config: WorldEngineConfig = DEFAULT_WORLDENGINE_CONFIG
 ) -> PhysicalWorld:
@@ -96,19 +122,7 @@ def generate_physical_world(
         previous_state = np.random.get_state()
         np.random.seed(upstream_seed)
         try:
-            world = world_gen(
-                f"cliova-{upstream_seed}",
-                config.width,
-                config.height,
-                upstream_seed,
-                num_plates=config.num_plates,
-                ocean_level=config.ocean_level,
-                step=Step.full(),
-                gamma_curve=config.gamma_curve,
-                curve_offset=config.curve_offset,
-                fade_borders=config.fade_borders,
-                verbose=False,
-            )
+            _, world = _generate_upstream_world(seed=seed, config=config)
         finally:
             np.random.set_state(previous_state)
 
@@ -125,3 +139,37 @@ def generate_physical_world(
         biome=np.asarray(world.layers["biome"].data, dtype=np.str_).copy(),
         plates=np.asarray(world.layers["plates"].data, dtype=np.int64).copy(),
     )
+
+
+@lru_cache(maxsize=16)
+def render_strategic_terrain_png(
+    *,
+    seed: int,
+    config: WorldEngineConfig = DEFAULT_WORLDENGINE_CONFIG,
+) -> bytes:
+    """Regenerate a disposable deterministic WorldEngine terrain PNG.
+
+    WorldEngine's satellite renderer already owns biome colour, elevation-aware relief,
+    ice, lakes and river shading. Cliova reuses that renderer rather than maintaining a
+    second terrain algorithm; the browser adds only presentation styling and overlays.
+    """
+    if type(seed) is not int:
+        raise ValueError("seed must be an integer")
+
+    upstream_seed = derive_worldengine_seed(seed)
+    with _WORLDENGINE_RNG_LOCK:
+        previous_state = np.random.get_state()
+        np.random.seed(upstream_seed)
+        try:
+            _, world = _generate_upstream_world(seed=seed, config=config)
+            target = PNGWriter.rgba_from_dimensions(world.width, world.height)
+            draw_satellite(world, target)
+            # WorldEngine's satellite renderer colours rivers subtly. Reuse its dedicated
+            # river overlay once more so major water features remain readable at strategic scale.
+            draw_rivers_on_image(world, target, factor=1)
+            with TemporaryDirectory(prefix="cliova-map-") as directory:
+                output = Path(directory) / "world.png"
+                target.complete(str(output))
+                return output.read_bytes()
+        finally:
+            np.random.set_state(previous_state)

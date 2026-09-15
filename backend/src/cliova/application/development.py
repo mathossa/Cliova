@@ -24,19 +24,40 @@ from cliova.simulation.types import (
 )
 
 
-def create_development_world(*, seed: int, world_key: str) -> WorldState:
-    """Create the deterministic seeded fixture used by development HTTP workflows.
+def create_development_world(
+    *, seed: int, world_key: str, generated_geography: bool = False
+) -> WorldState:
+    """Create a seeded development world with fixture or production-generated geography.
 
-    This is intentionally a development fixture, not a production world-generation policy.
-    The society/governance values mirror the existing persistence integration fixture so the
-    first vertical slice has one valid directive target without inventing production setup UX.
+    Existing callers keep the fast hand-authored fixture by default. The Command Center can
+    explicitly request #59 generation so strategic-map development uses real persisted geometry.
+    Generated worlds begin inhabited only in the society's deterministic core region rather than
+    assigning population to every physical region, including ocean regions.
     """
-
-    world = initialize_economy(
-        initialize_population(create_starter_world(seed=seed, world_key=world_key))
+    base = (
+        WorldState.create(seed=seed, world_key=world_key)
+        if generated_geography
+        else create_starter_world(seed=seed, world_key=world_key)
     )
-    assert world.geography is not None
-    region_id = world.geography.region("fertile-lowlands").id
+    assert base.geography is not None
+
+    if generated_geography:
+        core_region = max(
+            base.geography.regions,
+            key=lambda region: (
+                region.surface != "ocean",
+                region.habitability,
+                region.water_access,
+                -region.climate_pressure,
+                region.key,
+            ),
+        )
+        region_id = core_region.id
+        world = initialize_economy(initialize_population(base, region_ids=(region_id,)))
+    else:
+        region_id = base.geography.region("fertile-lowlands").id
+        world = initialize_economy(initialize_population(base))
+
     society_id = entity_id(world.id, "society", "river-council")
     governance = GovernanceState(
         subject_id=society_id,
