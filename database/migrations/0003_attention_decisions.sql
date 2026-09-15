@@ -3,8 +3,8 @@ CREATE TABLE cliova_attention_items (
     world_id uuid NOT NULL REFERENCES cliova_worlds(world_id) ON DELETE CASCADE,
     target_kind text NULL CHECK (target_kind IS NULL OR target_kind IN ('society', 'polity')),
     target_id uuid NULL,
-    created_tick integer NOT NULL CHECK (created_tick >= 0),
-    created_year integer NOT NULL,
+    created_tick bigint NOT NULL CHECK (created_tick >= 0),
+    created_year bigint NOT NULL,
     category text NOT NULL,
     priority text NOT NULL CHECK (priority IN ('informational', 'important', 'urgent')),
     context text NOT NULL,
@@ -22,23 +22,42 @@ CREATE TABLE cliova_decision_opportunities (
     world_id uuid NOT NULL REFERENCES cliova_worlds(world_id) ON DELETE CASCADE,
     target_kind text NOT NULL CHECK (target_kind IN ('society', 'polity')),
     target_id uuid NOT NULL,
-    created_tick integer NOT NULL CHECK (created_tick >= 0),
-    created_year integer NOT NULL,
+    created_tick bigint NOT NULL CHECK (created_tick >= 0),
+    created_year bigint NOT NULL,
     category text NOT NULL,
     context text NOT NULL,
     related_event_ids uuid[] NOT NULL DEFAULT '{}',
     related_subjects jsonb NOT NULL DEFAULT '[]'::jsonb,
-    earliest_effect_tick integer NOT NULL CHECK (earliest_effect_tick >= 0),
-    expires_at_tick integer NULL CHECK (expires_at_tick IS NULL OR expires_at_tick >= 0),
+    earliest_effect_tick bigint NOT NULL CHECK (earliest_effect_tick >= 0),
+    expires_at_tick bigint NULL CHECK (expires_at_tick IS NULL OR expires_at_tick >= 0),
     default_behavior text NOT NULL,
     response_intent text NOT NULL,
     status text NOT NULL CHECK (status IN ('open', 'responded', 'expired')),
     response_queue_id bigint NULL REFERENCES cliova_queued_inputs(queue_id),
-    response_submitted_tick integer NULL CHECK (response_submitted_tick IS NULL OR response_submitted_tick >= 0),
+    response_submitted_tick bigint NULL CHECK (
+        response_submitted_tick IS NULL OR response_submitted_tick >= 0
+    ),
     response_directive_id uuid NULL,
     CHECK (expires_at_tick IS NULL OR expires_at_tick >= earliest_effect_tick),
-    CHECK ((status = 'open' AND response_queue_id IS NULL AND response_submitted_tick IS NULL AND response_directive_id IS NULL)
-        OR status IN ('responded', 'expired')),
+    CHECK (
+        (
+            status = 'open'
+            AND response_queue_id IS NULL
+            AND response_submitted_tick IS NULL
+            AND response_directive_id IS NULL
+        )
+        OR (
+            status = 'responded'
+            AND response_queue_id IS NOT NULL
+            AND response_submitted_tick IS NOT NULL
+        )
+        OR (
+            status = 'expired'
+            AND response_queue_id IS NULL
+            AND response_submitted_tick IS NULL
+            AND response_directive_id IS NULL
+        )
+    ),
     UNIQUE (world_id, category, target_kind, target_id, related_event_ids)
 );
 
