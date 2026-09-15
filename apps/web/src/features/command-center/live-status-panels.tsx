@@ -24,13 +24,16 @@ export function LiveStatusPanel({ moduleId, world }: { moduleId: ModuleId; world
   if (moduleId === "society") {
     return (
       <LivePanel eyebrow="API v1 · society" title="Population status">
+        <p className="module-description compact-description">
+          Society names are not part of API v1 yet, so the interface uses each society&apos;s home region as its readable label.
+        </p>
         {world.societies.length === 0 ? <Empty text="No society summaries available." /> : (
           <ul className="live-list">
             {world.societies.map((society) => (
               <li key={society.id}>
                 <strong>{society.label}</strong>
                 <span>population {society.population}</span>
-                <small>region {shortId(society.regionId)}</small>
+                <small>home region {society.regionLabel} · technical ID {shortId(society.id)}</small>
               </li>
             ))}
           </ul>
@@ -93,7 +96,7 @@ export function LiveStatusPanel({ moduleId, world }: { moduleId: ModuleId; world
                 <strong>{pressure.label}</strong>
                 <span>{pressure.milestone} · intensity {pressure.intensity}</span>
                 <small>
-                  region {shortId(pressure.regionId)} · age {pressure.ageTicks} ticks · {pressure.causeCount} causal reference{pressure.causeCount === 1 ? "" : "s"}
+                  {pressure.regionLabel} · age {pressure.ageTicks} ticks · {pressure.causeCount} causal reference{pressure.causeCount === 1 ? "" : "s"}
                 </small>
               </li>
             ))}
