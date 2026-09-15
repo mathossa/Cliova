@@ -94,9 +94,7 @@ class AttentionRepository(Protocol):
 
     def list_attention_items(self, world_id: UUID) -> tuple[AttentionItem, ...]: ...
 
-    def list_decision_opportunities(
-        self, world_id: UUID
-    ) -> tuple[DecisionOpportunity, ...]: ...
+    def list_decision_opportunities(self, world_id: UUID) -> tuple[DecisionOpportunity, ...]: ...
 
     def queue_decision_response(
         self,
@@ -129,14 +127,10 @@ class FoodShortageAttentionProducer:
             )
             if region is None:
                 continue
-            targets: tuple[EntityId | None, ...] = (
-                tuple(governance_by_region.get(region, ())) or (None,)
+            targets: tuple[EntityId | None, ...] = tuple(governance_by_region.get(region, ())) or (
+                None,
             )
-            category = (
-                "food-shortage"
-                if event.kind == "resource-shortage"
-                else "food-recovery"
-            )
+            category = "food-shortage" if event.kind == "resource-shortage" else "food-recovery"
             for target in targets:
                 attention.append(
                     AttentionItem(
@@ -197,9 +191,7 @@ def _is_food_availability_event(event: SimulationEvent) -> bool:
         "resource-recovery",
     }:
         return False
-    return any(
-        change.key == "economy.food.shortage_severity" for change in event.changes
-    )
+    return any(change.key == "economy.food.shortage_severity" for change in event.changes)
 
 
 def _attention_id(
