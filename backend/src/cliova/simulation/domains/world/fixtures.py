@@ -1,14 +1,20 @@
 """Deterministic starter geography fixtures for integration and simulation tests."""
 
+import json
+from uuid import NAMESPACE_URL, uuid5
+
 from cliova.simulation.domains.world.generation import derive_food_opportunities
 from cliova.simulation.domains.world.graph import is_connected
 from cliova.simulation.types import (
+    RNG_ALGORITHM,
     EntityId,
     GeographyState,
     RegionConnection,
     RegionState,
     ResourcePotential,
+    SimulationTime,
     TerrainKind,
+    WorldMetadata,
     WorldState,
     entity_id,
 )
@@ -135,6 +141,19 @@ def starter_geography(world_id: EntityId) -> GeographyState:
 
 
 def create_starter_world(*, seed: int = 0, world_key: str = "starter-v1") -> WorldState:
-    """Create a reproducible starter world whose physical geography is fixture-defined."""
-    world = WorldState.create(seed=seed, world_key=world_key)
-    return world.model_copy(update={"geography": starter_geography(world.id)})
+    """Create a fixture world without paying the production physical-generation cost."""
+    if type(seed) is not int:
+        raise ValueError("seed must be an integer")
+    if not isinstance(world_key, str) or not world_key:
+        raise ValueError("world_key must be a non-empty string")
+    name = json.dumps(
+        ["cliova.world.v1", seed, world_key], ensure_ascii=True, separators=(",", ":")
+    )
+    world_id = EntityId(kind="world", value=uuid5(NAMESPACE_URL, name))
+    return WorldState(
+        id=world_id,
+        seed=seed,
+        metadata=WorldMetadata(schema_version=1, simulation_version=1, rng_algorithm=RNG_ALGORITHM),
+        time=SimulationTime(),
+        geography=starter_geography(world_id),
+    )

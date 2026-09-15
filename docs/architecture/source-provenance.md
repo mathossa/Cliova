@@ -16,6 +16,36 @@ For each candidate record:
 
 ## Current decisions
 
+### `Mindwerks/worldengine`
+
+- **Upstream:** `Mindwerks/worldengine`; plate tectonics, elevation, climate, precipitation/humidity, hydrology/erosion and biome generation for issue #59.
+- **Revision:** release `v0.20.0`, commit `0e982b23439dbec1475da9755f774a5b2ab4dbe2` (inspected on 2026-09-15).
+- **License/SPDX:** `MIT`; verified from the release's `LICENSE.txt` and package metadata.
+- **Classification:** `licensed-reusable`.
+- **Reuse mode:** `dependency`; Cliova pins `worldengine==0.20.0` and calls `worldengine.plates.world_gen` through a thin adapter. No WorldEngine implementation source is copied into Cliova.
+- **Attribution/NOTICE:** WorldEngine's copyright and MIT permission notice must remain available with distributed copies/substantial portions. The installed dependency retains its license; Cliova also records the notice in `THIRD_PARTY_NOTICES.md`.
+- **Rationale:** the upstream implementation already provides the substantial physical-generation mechanics requested by #59, including tectonics/elevation, erosion, temperature, precipitation, humidity, hydrology and biome classification. Its drawing helpers were inspected but are not integrated because #59 stores renderer-independent presentation geometry and #24 owns browser-map rendering. WorldEngine 0.20.0 still performs one legacy global NumPy RNG draw inside `world_gen`; Cliova contains that call behind a lock with an explicit Cliova-derived seed and restores the prior RNG state.
+
+### `networkx/networkx` graph Voronoi
+
+- **Upstream:** `networkx/networkx`, `networkx.algorithms.voronoi.voronoi_cells`; deterministic aggregate-region partitioning for issue #59.
+- **Revision:** `networkx-3.4`, commit `fe7795acbc31518bb5154de79afb0b9dab2f4846` (minimum supported dependency inspected on 2026-09-15).
+- **License/SPDX:** `BSD-3-Clause`; verified from `LICENSE.txt`.
+- **Classification:** `licensed-reusable`.
+- **Reuse mode:** `dependency`; NetworkX was already a Cliova dependency and #59 calls its graph-Voronoi API rather than copying the implementation.
+- **Attribution/NOTICE:** retain the NetworkX BSD-3-Clause copyright/license notice in source/binary redistributions as required by the upstream license. Dependency packaging continues to carry that license.
+- **Rationale:** graph Voronoi provides a mature shortest-path partition primitive directly on Cliova's generated cell graph. It avoids inventing a bespoke segmentation algorithm and avoids adding a heavier image-segmentation dependency.
+
+### `scikit-image` watershed segmentation
+
+- **Upstream:** `scikit-image`, `skimage.segmentation.watershed`; considered as an alternative region-partition implementation for issue #59.
+- **Revision:** stable documentation/API inspected on 2026-09-15.
+- **License/SPDX:** `BSD-3-Clause`.
+- **Classification:** `rejected` for this subsystem.
+- **Reuse mode:** `rejected`; no dependency or source reuse.
+- **Attribution/NOTICE:** none for Cliova under this decision because no scikit-image code is distributed or copied.
+- **Rationale:** watershed is a mature segmentation algorithm, but adding scikit-image/SciPy solely for aggregate world partitioning is unnecessary while the already-present NetworkX graph-Voronoi implementation meets the deterministic partition requirement with a smaller dependency surface.
+
 ### `tan-zhuo/genesis`
 
 - **Upstream:** `tan-zhuo/genesis`; potentially relevant to simulation concepts, phase ordering and observable game behavior.
