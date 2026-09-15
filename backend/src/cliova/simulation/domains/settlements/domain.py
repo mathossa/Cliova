@@ -511,7 +511,9 @@ def _optional_subject(values: dict[str, str | int | float | bool]) -> EntityId |
     return EntityId(kind=cast(EntityKind, subject_kind), value=UUID(subject_id))
 
 
-def _index_by_id(states: list[SettlementState] | list[StructureState], target: EntityId) -> int:
+def _index_by_id(
+    states: Iterable[SettlementState | StructureState], target: EntityId
+) -> int:
     for index, state in enumerate(states):
         if state.id == target:
             return index
