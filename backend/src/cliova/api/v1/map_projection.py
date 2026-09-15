@@ -147,8 +147,8 @@ def world_map_projection(world: WorldState) -> WorldMapResponse:
 
     settlements: list[SettlementMapMarker] = []
     for settlement in sorted(world.settlements.settlements, key=lambda item: item.id.value.hex):
-        geometry = presentation_by_region.get(settlement.region_id)
-        if geometry is None:
+        settlement_geometry = presentation_by_region.get(settlement.region_id)
+        if settlement_geometry is None:
             continue
         associated = None
         if settlement.associated_subject is not None:
@@ -165,7 +165,7 @@ def world_map_projection(world: WorldState) -> WorldMapResponse:
                 status=settlement.status,
                 population_estimate=settlement.population_estimate,
                 associated_subject=associated,
-                position=_centroid(geometry, height=presentation.height),
+                position=_centroid(settlement_geometry, height=presentation.height),
                 structure_count=structure_counts.get(settlement.id, 0),
                 local_map_path=f"/settlements/{settlement.id.value}",
             )
