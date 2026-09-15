@@ -27,7 +27,9 @@ _BIOME_FILL = {
 _OCEAN_FILL = "#17394a"
 
 
-def _parameter_values(generation: PhysicalGenerationMetadata) -> dict[str, str | int | float | bool]:
+def _parameter_values(
+    generation: PhysicalGenerationMetadata,
+) -> dict[str, str | int | float | bool]:
     return {parameter.key: parameter.value for parameter in generation.parameters}
 
 
@@ -77,12 +79,15 @@ def _worldengine_svg(world: WorldState, generation: PhysicalGenerationMetadata) 
     source = escape(
         f"{generation.generator}:{generation.adapter_version}:{generation.upstream_version}"
     )
+    metadata = (
+        f"Cliova derived strategic base; render={MAP_RENDER_VERSION}; source={source}"
+    )
     return (
         '<svg xmlns="http://www.w3.org/2000/svg" '
         f'viewBox="0 0 {presentation.width} {presentation.height}" '
         f'width="{presentation.width}" height="{presentation.height}" '
         f'data-render-version="{MAP_RENDER_VERSION}">'
-        f"<metadata>Cliova derived strategic base; render={MAP_RENDER_VERSION}; source={source}</metadata>"
+        f"<metadata>{metadata}</metadata>"
         f'<rect width="{presentation.width}" height="{presentation.height}" fill="#193641"/>'
         f'<image x="0" y="0" width="{presentation.width}" height="{presentation.height}" '
         'preserveAspectRatio="none" '
