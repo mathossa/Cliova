@@ -225,9 +225,7 @@ def test_recovery_clears_shortage_and_rebuilds_food_security_pressure() -> None:
     dry_recovery_input = next(
         pressure for pressure in recovery_pressures if pressure.subjects == (dry.id,)
     )
-    dry_recovery = next(
-        change for change in dry_recovery_input.changes if change.target == dry.id
-    )
+    dry_recovery = next(change for change in dry_recovery_input.changes if change.target == dry.id)
     assert dry_recovery.cause_event_ids == (recovery_event.id,)
 
     restored = engine.step(recovered.world, inputs=recovery_pressures)
