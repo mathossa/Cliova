@@ -110,9 +110,10 @@ class FoodShortageAttentionProducer:
         decisions: list[DecisionOpportunity] = []
         world = result.world
 
-        governance_by_region = {
-            state.region_id: state.subject_id for state in world.governance
-        }
+        governance_by_region: dict[EntityId, list[EntityId]] = {}
+        for state in sorted(world.governance, key=lambda item: item.subject_id.value.hex):
+            governance_by_region.setdefault(state.region_id, []).append(state.subject_id)
+
         for event in result.events:
             if not _is_food_availability_event(event):
                 continue
@@ -122,49 +123,52 @@ class FoodShortageAttentionProducer:
             )
             if region is None:
                 continue
-            target = governance_by_region.get(region)
+            targets: tuple[EntityId | None, ...] = tuple(governance_by_region.get(region, ())) or (None,)
             category = "food-shortage" if event.kind == "resource-shortage" else "food-recovery"
-            attention.append(
-                AttentionItem(
-                    id=_attention_id(world.id.value, event.id, category, target),
-                    world_id=world.id.value,
-                    target_subject=target,
-                    created_tick=event.time.tick,
-                    created_year=event.time.year,
-                    category=category,
-                    priority=(
-                        AttentionPriority.IMPORTANT
-                        if event.kind == "resource-shortage"
-                        else AttentionPriority.INFORMATIONAL
-                    ),
-                    context=event.reason,
-                    related_event_ids=(event.id,),
-                    related_subjects=event.subjects,
+            for target in targets:
+                attention.append(
+                    AttentionItem(
+                        id=_attention_id(world.id.value, event.id, category, target),
+                        world_id=world.id.value,
+                        target_subject=target,
+                        created_tick=event.time.tick,
+                        created_year=event.time.year,
+                        category=category,
+                        priority=(
+                            AttentionPriority.IMPORTANT
+                            if event.kind == "resource-shortage"
+                            else AttentionPriority.INFORMATIONAL
+                        ),
+                        context=event.reason,
+                        related_event_ids=(event.id,),
+                        related_subjects=event.subjects,
+                    )
                 )
-            )
-            if event.kind != "resource-shortage" or target is None:
-                continue
-            decisions.append(
-                DecisionOpportunity(
-                    id=_decision_id(world.id.value, event.id, "food-shortage-priority", target),
-                    world_id=world.id.value,
-                    target_subject=target,
-                    created_tick=event.time.tick,
-                    created_year=event.time.year,
-                    category="food-shortage-priority",
-                    context=event.reason,
-                    related_event_ids=(event.id,),
-                    related_subjects=event.subjects,
-                    earliest_effect_tick=event.time.tick + 1,
-                    expires_at_tick=None,
-                    default_behavior=(
-                        "No new directive is submitted; existing directives and standing policy "
-                        "continue unchanged."
-                    ),
-                    response_intent="strengthen_food_reserves",
-                    status=DecisionOpportunityStatus.OPEN,
+                if event.kind != "resource-shortage" or target is None:
+                    continue
+                decisions.append(
+                    DecisionOpportunity(
+                        id=_decision_id(
+                            world.id.value, event.id, "food-shortage-priority", target
+                        ),
+                        world_id=world.id.value,
+                        target_subject=target,
+                        created_tick=event.time.tick,
+                        created_year=event.time.year,
+                        category="food-shortage-priority",
+                        context=event.reason,
+                        related_event_ids=(event.id,),
+                        related_subjects=event.subjects,
+                        earliest_effect_tick=event.time.tick + 1,
+                        expires_at_tick=None,
+                        default_behavior=(
+                            "No new directive is submitted; existing directives and standing policy "
+                            "continue unchanged."
+                        ),
+                        response_intent="strengthen_food_reserves",
+                        status=DecisionOpportunityStatus.OPEN,
+                    )
                 )
-            )
 
         return AttentionProjection(
             attention_items=tuple(attention),
