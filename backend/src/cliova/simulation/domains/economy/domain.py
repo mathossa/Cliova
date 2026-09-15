@@ -12,10 +12,13 @@ from cliova.simulation.domains.population import (
 from cliova.simulation.engine import TickContext, TickPhase
 from cliova.simulation.randomness import RandomSource
 from cliova.simulation.types import (
+    ChangeAttribute,
     DomainResult,
     EconomyDomainState,
     EntityId,
     EventProposal,
+    FoodProductionMethod,
+    FoodProductionMethodState,
     RegionalPopulationState,
     RegionState,
     ResourceEconomyState,
@@ -30,6 +33,7 @@ from cliova.simulation.types import (
 
 RESOURCE_KINDS: tuple[ResourceKind, ...] = ("food", "timber", "stone", "metal_ore")
 LABOUR_SHARE = 0.45
+FOOD_DEMAND_PER_CAPITA = 1.0
 SIGNIFICANT_SHORTAGE_SEVERITY = 0.10
 SIGNIFICANT_SURPLUS_RATIO = 0.10
 SIGNIFICANT_SEVERITY_CHANGE = 0.25
@@ -42,12 +46,50 @@ class ResourceRule:
     output_per_worker: float
 
 
+@dataclass(frozen=True, slots=True)
+class FoodProductionRule:
+    method: FoodProductionMethod
+    potential_key: str
+    output_per_worker: float
+    sustainable_yield_scale: float
+    allocation_weight: float = 1.0
+
+
 RESOURCE_RULES: dict[ResourceKind, ResourceRule] = {
-    "food": ResourceRule("arable_land", demand_per_capita=1.0, output_per_worker=2.8),
     "timber": ResourceRule("timber", demand_per_capita=0.08, output_per_worker=0.50),
     "stone": ResourceRule("stone", demand_per_capita=0.05, output_per_worker=0.40),
     "metal_ore": ResourceRule("metal_ores", demand_per_capita=0.03, output_per_worker=0.25),
 }
+
+FOOD_PRODUCTION_RULES: tuple[FoodProductionRule, ...] = (
+    FoodProductionRule(
+        method="cultivation",
+        potential_key="arable_land",
+        output_per_worker=2.8,
+        sustainable_yield_scale=900.0,
+    ),
+    FoodProductionRule(
+        method="pastoralism",
+        potential_key="grazing",
+        output_per_worker=2.4,
+        sustainable_yield_scale=500.0,
+    ),
+    FoodProductionRule(
+        method="foraging",
+        potential_key="wild_food",
+        output_per_worker=1.8,
+        sustainable_yield_scale=350.0,
+    ),
+    FoodProductionRule(
+        method="fishing",
+        potential_key="aquatic_food",
+        output_per_worker=2.2,
+        sustainable_yield_scale=450.0,
+    ),
+)
+FOOD_PRODUCTION_METHODS: tuple[FoodProductionMethod, ...] = tuple(
+    rule.method for rule in FOOD_PRODUCTION_RULES
+)
 
 RESOURCE_FIELDS = frozenset(
     {
@@ -62,7 +104,7 @@ RESOURCE_FIELDS = frozenset(
     }
 )
 
-CapabilityModifier = Callable[[WorldState, EntityId, ResourceKind], float]
+CapabilityModifier = Callable[[WorldState, EntityId, ResourceKind, str | None], float]
 
 
 @dataclass(frozen=True, slots=True)
@@ -75,6 +117,7 @@ class ResourceOutcome:
     surplus: float
     deficit: float
     shortage_severity: float
+    food_production: tuple[FoodProductionMethodState, ...] = ()
 
 
 class EconomyDomain:
@@ -84,8 +127,6 @@ class EconomyDomain:
     phase = TickPhase.ECONOMY
 
     def __init__(self, capability_modifier: CapabilityModifier | None = None) -> None:
-        # Issue #11 can supply a deterministic capability multiplier later without
-        # changing this issue's production/stockpile model.
         self._capability_modifier = capability_modifier or _neutral_capability_modifier
 
     def step(
@@ -121,17 +162,27 @@ class EconomyDomain:
             causes = _region_causes(context, regional_economy.region_id)
 
             for current in regional_economy.resources:
-                capability_modifier = self._capability_modifier(
-                    world, regional_economy.region_id, current.resource
-                )
-                if capability_modifier <= 0.0:
-                    raise ValueError("capability modifier must be positive")
-                outcome = _calculate_outcome(
-                    current,
-                    population,
-                    region,
-                    capability_modifier=capability_modifier,
-                )
+                if current.resource == "food":
+                    outcome = _calculate_food_outcome(
+                        current,
+                        population,
+                        region,
+                        world=world,
+                        region_id=regional_economy.region_id,
+                        capability_modifier=self._capability_modifier,
+                    )
+                else:
+                    capability_modifier = self._capability_modifier(
+                        world, regional_economy.region_id, current.resource, None
+                    )
+                    if capability_modifier <= 0.0:
+                        raise ValueError("capability modifier must be positive")
+                    outcome = _calculate_resource_outcome(
+                        current,
+                        population,
+                        region,
+                        capability_modifier=capability_modifier,
+                    )
                 resource_changes = _outcome_changes(
                     region_id=regional_economy.region_id,
                     current=current,
@@ -218,7 +269,10 @@ class EconomyDomain:
         elif value < 0.0:
             raise ValueError(f"economy {field} cannot become negative")
 
-        resources[resource_index] = current.model_copy(update={field: value})
+        update: dict[str, object] = {field: value}
+        if resource_kind == "food" and field == "production" and change.attributes:
+            update["food_production"] = _food_production_from_attributes(change.attributes)
+        resources[resource_index] = current.model_copy(update=update)
         regions[region_index] = regional_economy.model_copy(update={"resources": tuple(resources)})
         economy = EconomyDomainState(regions=tuple(regions))
         return world.model_copy(update={"economy": economy})
@@ -288,9 +342,12 @@ def _parse_change_key(key: str) -> tuple[ResourceKind, str]:
 
 
 def _neutral_capability_modifier(
-    world: WorldState, region_id: EntityId, resource: ResourceKind
+    world: WorldState,
+    region_id: EntityId,
+    resource: ResourceKind,
+    production_method: str | None,
 ) -> float:
-    del world, region_id, resource
+    del world, region_id, resource, production_method
     return 1.0
 
 
@@ -302,7 +359,74 @@ def _region_by_id(world: WorldState, region_id: EntityId) -> RegionState:
     raise ValueError("economy region does not exist in geography")
 
 
-def _calculate_outcome(
+def _calculate_food_outcome(
+    current: ResourceEconomyState,
+    population: RegionalPopulationState,
+    region: RegionState,
+    *,
+    world: WorldState,
+    region_id: EntityId,
+    capability_modifier: CapabilityModifier,
+) -> ResourceOutcome:
+    available_labour = _quantity(population.total * LABOUR_SHARE)
+    allocations = _allocate_food_labour(region, available_labour)
+    method_states: list[FoodProductionMethodState] = []
+
+    for rule, allocated_labour in zip(FOOD_PRODUCTION_RULES, allocations, strict=True):
+        modifier = capability_modifier(world, region_id, "food", rule.method)
+        if modifier <= 0.0:
+            raise ValueError("capability modifier must be positive")
+        potential = region.resource_potential(rule.potential_key)
+        labour_limited = _quantity(allocated_labour * rule.output_per_worker * modifier)
+        sustainable_limit = _quantity(potential * rule.sustainable_yield_scale)
+        output = _quantity(min(labour_limited, sustainable_limit))
+        method_states.append(
+            FoodProductionMethodState(
+                method=rule.method,
+                regional_potential=potential,
+                allocated_labour=allocated_labour,
+                capability_modifier=modifier,
+                labour_limited_output=labour_limited,
+                sustainable_limit=sustainable_limit,
+                output=output,
+            )
+        )
+
+    production_capacity = _quantity(sum(state.labour_limited_output for state in method_states))
+    production = _quantity(sum(state.output for state in method_states))
+    demand = _quantity(population.total * FOOD_DEMAND_PER_CAPITA)
+    return _balance_resource(
+        current,
+        production_capacity=production_capacity,
+        production=production,
+        demand=demand,
+        food_production=tuple(method_states),
+    )
+
+
+def _allocate_food_labour(region: RegionState, available_labour: float) -> tuple[float, ...]:
+    weights = tuple(
+        region.resource_potential(rule.potential_key) * rule.allocation_weight
+        for rule in FOOD_PRODUCTION_RULES
+    )
+    total_weight = sum(weights)
+    if available_labour <= 0.0 or total_weight <= 0.0:
+        return tuple(0.0 for _ in FOOD_PRODUCTION_RULES)
+
+    allocations = [
+        _quantity(available_labour * weight / total_weight) if weight > 0.0 else 0.0
+        for weight in weights
+    ]
+    difference = round(available_labour - sum(allocations), 6)
+    if difference:
+        adjustable = max(index for index, weight in enumerate(weights) if weight > 0.0)
+        allocations[adjustable] = _quantity(allocations[adjustable] + difference)
+    if sum(allocations) > available_labour + 1e-6:
+        raise RuntimeError("food labour allocation exceeded available labour")
+    return tuple(allocations)
+
+
+def _calculate_resource_outcome(
     current: ResourceEconomyState,
     population: RegionalPopulationState,
     region: RegionState,
@@ -319,8 +443,23 @@ def _calculate_outcome(
     capacity = _quantity(
         labour * rule.output_per_worker * potential * capability_modifier * circumstance_modifier
     )
-    production = capacity
     demand = _quantity(population.total * rule.demand_per_capita)
+    return _balance_resource(
+        current,
+        production_capacity=capacity,
+        production=capacity,
+        demand=demand,
+    )
+
+
+def _balance_resource(
+    current: ResourceEconomyState,
+    *,
+    production_capacity: float,
+    production: float,
+    demand: float,
+    food_production: tuple[FoodProductionMethodState, ...] = (),
+) -> ResourceOutcome:
     available = _quantity(current.stockpile + production)
     consumed = _quantity(min(available, demand))
     ending_stockpile = _quantity(max(0.0, available - consumed))
@@ -329,7 +468,7 @@ def _calculate_outcome(
     shortage_severity = _quantity(deficit / demand) if demand > 0.0 else 0.0
 
     return ResourceOutcome(
-        production_capacity=capacity,
+        production_capacity=production_capacity,
         production=production,
         demand=demand,
         consumed=consumed,
@@ -337,6 +476,7 @@ def _calculate_outcome(
         surplus=surplus,
         deficit=deficit,
         shortage_severity=min(1.0, shortage_severity),
+        food_production=food_production,
     )
 
 
@@ -361,19 +501,86 @@ def _outcome_changes(
         desired = float(getattr(outcome, field))
         existing = float(getattr(current, field))
         delta = round(desired - existing, 6)
-        if not delta:
+        method_state_changed = (
+            current.resource == "food"
+            and field == "production"
+            and current.food_production != outcome.food_production
+        )
+        if not delta and not method_state_changed:
             continue
+        attributes = (
+            _food_production_attributes(outcome.food_production)
+            if current.resource == "food" and field == "production"
+            else ()
+        )
         changes.append(
             SimulationChange(
                 source="economy",
                 key=resource_change_key(current.resource, field),
                 delta=delta,
-                reason=f"recalculated {current.resource} {field}",
+                reason=(
+                    "recalculated food production and method constraints"
+                    if method_state_changed and field == "production"
+                    else f"recalculated {current.resource} {field}"
+                ),
                 target=region_id,
                 cause_event_ids=causes,
+                attributes=attributes,
             )
         )
     return tuple(changes)
+
+
+def _food_production_attributes(
+    states: tuple[FoodProductionMethodState, ...],
+) -> tuple[ChangeAttribute, ...]:
+    attributes: list[ChangeAttribute] = []
+    for state in states:
+        prefix = f"food_method.{state.method}"
+        for field in (
+            "regional_potential",
+            "allocated_labour",
+            "capability_modifier",
+            "labour_limited_output",
+            "sustainable_limit",
+            "output",
+        ):
+            attributes.append(
+                ChangeAttribute(key=f"{prefix}.{field}", value=float(getattr(state, field)))
+            )
+    return tuple(attributes)
+
+
+def _food_production_from_attributes(
+    attributes: tuple[ChangeAttribute, ...],
+) -> tuple[FoodProductionMethodState, ...]:
+    values = {attribute.key: attribute.value for attribute in attributes}
+    states: list[FoodProductionMethodState] = []
+    fields = (
+        "regional_potential",
+        "allocated_labour",
+        "capability_modifier",
+        "labour_limited_output",
+        "sustainable_limit",
+        "output",
+    )
+    for method in FOOD_PRODUCTION_METHODS:
+        prefix = f"food_method.{method}"
+        missing = [field for field in fields if f"{prefix}.{field}" not in values]
+        if missing:
+            raise ValueError(f"food production change missing {method} fields: {missing}")
+        states.append(
+            FoodProductionMethodState(
+                method=method,
+                regional_potential=float(values[f"{prefix}.regional_potential"]),
+                allocated_labour=float(values[f"{prefix}.allocated_labour"]),
+                capability_modifier=float(values[f"{prefix}.capability_modifier"]),
+                labour_limited_output=float(values[f"{prefix}.labour_limited_output"]),
+                sustainable_limit=float(values[f"{prefix}.sustainable_limit"]),
+                output=float(values[f"{prefix}.output"]),
+            )
+        )
+    return tuple(states)
 
 
 def _region_causes(context: TickContext, region_id: EntityId) -> tuple[UUID, ...]:
@@ -435,11 +642,23 @@ def _event_reason(
         state = "recovered from shortage"
     else:
         state = f"produced surplus={outcome.surplus:.3f}"
-    return (
+    reason = (
         f"{current.resource} in {region.key} {state}: production={outcome.production:.3f}, "
         f"demand={outcome.demand:.3f}, stockpile={outcome.stockpile:.3f}, "
         f"deficit={outcome.deficit:.3f}."
     )
+    if current.resource == "food" and outcome.food_production:
+        methods = "; ".join(
+            (
+                f"{method.method} labour={method.allocated_labour:.3f} "
+                f"labour_limit={method.labour_limited_output:.3f} "
+                f"sustainable_limit={method.sustainable_limit:.3f} "
+                f"output={method.output:.3f}"
+            )
+            for method in outcome.food_production
+        )
+        reason = f"{reason} Methods: {methods}."
+    return reason
 
 
 def _quantity(value: float) -> float:
