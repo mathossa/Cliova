@@ -104,9 +104,7 @@ def test_core_temporary_presence_and_authoritative_settlements_remain_distinct()
     relationship = world.society_regions[0]
 
     core = next(
-        region
-        for region in projection.regions
-        if region.id == relationship.core_region_id.value
+        region for region in projection.regions if region.id == relationship.core_region_id.value
     )
     temporary = next(
         region
