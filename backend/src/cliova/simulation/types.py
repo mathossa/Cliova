@@ -291,7 +291,9 @@ class ResourceEconomyState(SimulationModel):
         if self.food_reserves is not None:
             tolerance = 1e-6
             if abs(self.food_reserves.total - self.stockpile) > tolerance:
-                raise ValueError("aggregate food stockpile must equal perishable plus durable reserves")
+                raise ValueError(
+                    "aggregate food stockpile must equal perishable plus durable reserves"
+                )
             if abs(self.food_reserves.consumed - self.consumed) > tolerance:
                 raise ValueError("food consumption must equal its explicit reserve draw accounting")
         return self
