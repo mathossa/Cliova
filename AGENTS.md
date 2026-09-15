@@ -88,7 +88,7 @@ For narrow issues, read only the specific vision documents that are relevant. St
 
 ## 5. Copy/adapt first: mandatory open-source gate
 
-Cliova should not spend AI-generated code on a substantial mechanic that already has a suitable open-source implementation.
+Cliova should not spend AI-generated code on a substantial mechanic that already has a suitable reusable open-source implementation. **Copy first applies only when copying/adaptation is actually permitted by a verified license or explicit permission.** Public source visibility alone does not make a project a code donor.
 
 This gate applies to **both generic infrastructure and simulation/game-domain mechanics**. A mechanic is not exempt merely because its final behavior is Cliova-specific. Population, economy, production, storage, trade, knowledge/innovation, governance, diplomacy, warfare, migration, crises, world generation and similar domains must still be checked for reusable foundations before new substantial implementations are written.
 
@@ -99,29 +99,71 @@ Tiny helpers, straightforward adapters, presentation glue and genuinely small is
 Before implementing substantial new behavior:
 
 1. **Check Cliova first.** Determine whether the capability already exists in the repository or current dependencies.
-2. **Search targeted OSS sources before designing from scratch.** Search maintained libraries **and** real games/simulators/reference projects that implement comparable behavior. Prefer targeted searches over broad surveys.
-3. **Inspect actual implementation code.** A README or feature list is not enough when deciding whether code can be reused. Inspect the relevant files, data model and tests for promising candidates.
-4. **Verify provenance and license before copying/adapting.** Confirm the repository/file license and obligations. Publicly visible code without a clear compatible license is not reusable source.
-5. **Compare candidates explicitly.** For each serious candidate, consider functional fit, language/runtime fit, granularity, determinism, quality/tests, maintenance, dependency weight, security/reputation, license, and adaptation cost.
-6. **Choose reuse before invention where practical.** Prefer an existing proven implementation when it can supply a meaningful part of the required behavior without violating Cliova's product or architecture constraints.
-7. **Document the decision.** PR notes for substantial mechanics must name the OSS candidates checked, their licenses, and whether Cliova used, adapted or rejected them. Rejections need a concrete reason.
+2. **Search targeted external implementations before designing from scratch.** Search maintained libraries and real games/simulators/reference projects that implement comparable behavior. Prefer targeted searches over broad surveys.
+3. **Verify provenance and license, then classify each serious candidate** as `licensed-reusable`, `reference-only` or `rejected` before treating it as implementation input.
+4. **Inspect at the level allowed by the classification.** For `licensed-reusable` candidates, inspect relevant implementation code, data models and tests to decide what can actually be reused. For `reference-only` candidates, follow the reference-only boundary and specification workflow below.
+5. **Compare candidates explicitly.** Consider functional fit, language/runtime fit, granularity, determinism, quality/tests, maintenance, dependency weight, security/reputation, license and adaptation cost.
+6. **Choose reuse before invention where legally and technically practical.** Prefer an existing proven implementation when it can supply a meaningful part of the required behavior without violating Cliova's product, architecture or licensing constraints.
+7. **Record the decision.** Update `docs/architecture/source-provenance.md` for serious candidates that materially influence the subsystem decision and include the relevant reuse/provenance decision in the PR notes.
+
+### Source classifications
+
+Every serious external implementation candidate considered for substantial reuse must be classified:
+
+- **`licensed-reusable`** — an explicit applicable license or permission has been verified and is compatible with the intended Cliova use. The source may be used as a dependency and/or copied/adapted subject to its obligations.
+- **`reference-only`** — the source may be studied for understanding, ideas, requirements and externally observable behavior, but permission to copy/adapt its implementation expression has not been established. It is **not** a code donor.
+- **`rejected`** — the source is unsuitable because of license, provenance, technical fit, maintenance state, architecture, dependency cost or another concrete documented reason.
+
+A candidate may be reclassified later if new evidence appears, but reuse decisions are prospective: do not silently treat earlier reference-only work as copied/adapted source after a later license change.
 
 ### Decision order
 
-Prefer, where practical:
+For `licensed-reusable` sources, prefer where practical:
 
-1. **Adapt/copy a compatible, well-understood implementation** when its mechanics substantially match the requested behavior and the license permits it.
-2. **Use an established dependency through a thin Cliova adapter** when the dependency already owns the generic algorithm or simulation machinery.
+1. **Use an established dependency through a thin Cliova adapter** when the dependency already owns the generic algorithm or simulation machinery.
+2. **Adapt/copy a compatible, well-understood implementation** when its mechanics substantially match the requested behavior and the license permits it.
 3. **Combine reused foundations with Cliova-specific rules** when upstream code solves only part of the problem.
-4. **Write a fresh Cliova implementation only when the checked alternatives are unsuitable.**
 
-A from-scratch implementation is **not** the default just because adapting foreign code takes work or uses a different language. Translating a well-understood algorithm/model can be preferable to inventing a new one, provided attribution and license obligations are preserved.
+If no suitable `licensed-reusable` implementation exists, a fresh Cliova implementation may still be appropriate. A `reference-only` source can inform a neutral behavioral specification, but it must not be translated, structurally paraphrased or otherwise used as source expression for that implementation.
 
-If a plausible compatible implementation exists but the agent wants to reject it in favor of a substantial fresh design, **raise that trade-off to the user before coding**.
+If a plausible compatible `licensed-reusable` implementation exists but the agent wants to reject it in favor of a substantial fresh design, **raise that trade-off to the user before coding**.
+
+### Reference-only boundary
+
+For a `reference-only` project, agents may:
+
+- read README/documentation and observe public behavior;
+- inspect source where useful to understand high-level concepts rather than reproduce expression;
+- identify general algorithms or phase ordering at an abstract level;
+- extract requirements, constraints, invariants and important edge cases;
+- create an implementation-neutral behavioral specification;
+- independently implement that specification using Cliova's own architecture and authoritative contracts;
+- compare resulting behavior where appropriate.
+
+Agents must **not**:
+
+- copy source lines, comments or tests;
+- directly translate or port source between programming languages;
+- paraphrase files, functions or classes while preserving distinctive implementation structure;
+- preserve a distinctive file/class/function decomposition merely by renaming identifiers;
+- ask AI to “port”, “rewrite”, “convert” or “reimplement this source file” while retaining its expression or structure;
+- copy arbitrary constants, tables or data whose rights/provenance are unclear;
+- place source excerpts from the reference-only project into Cliova prompts, code or documentation merely to enable reproduction.
+
+When a prompt effectively says “here is an unlicensed project; port its implementation”, stop that path. Research behavior instead, produce a neutral specification, then implement independently.
+
+### Reference-only specification -> independent implementation
+
+When a reference-only implementation is materially useful, use a pragmatic two-stage workflow:
+
+1. **Research/specification stage.** Inspect the reference only as needed, then describe behavior, inputs, outputs, constraints, invariants and edge cases without code snippets, distinctive identifiers or unnecessary source structure.
+2. **Independent implementation stage.** Implement from that neutral specification plus Cliova's authoritative contracts. The implementation task should not require the reference source. Record that the source was reference-only and was not copied, translated or adapted.
+
+This is a Cliova engineering/provenance risk-control workflow, **not** a claim of formal legal clean-room certification or guaranteed copyright compliance.
 
 ### Existing Cliova code is not automatically grandfathered
 
-When materially extending a custom subsystem that has never had a proper OSS comparison, perform the reuse check then. Do not treat an earlier AI-generated implementation as permanently authoritative merely because later issues depend on it. Preserve public contracts where useful, but replacing or adapting internals is allowed when a better OSS foundation is identified and the user agrees to the migration.
+When materially extending a custom subsystem that has never had a proper external implementation comparison, perform the reuse check then. Do not treat an earlier AI-generated implementation as permanently authoritative merely because later issues depend on it. Preserve public contracts where useful, but replacing or adapting internals is allowed when a better licensed-reusable foundation is identified and the user agrees to the migration.
 
 ### What must remain Cliova-specific
 
@@ -134,20 +176,24 @@ Reuse does not mean cloning another game's product design. Cliova still owns:
 - which mechanics are exposed to players;
 - how reused mechanics are combined into Cliova's simulation.
 
-Copy mechanisms before inventing them; do not copy product identity blindly.
+Copy licensed mechanisms before inventing them; do not copy product identity blindly.
 
 ### Licensing and provenance
 
 Cliova is licensed under **GPLv3**. External code must have a license that can legally and practically be used with this project and must comply with its attribution/source obligations.
 
 - Never assume that code is reusable merely because it is publicly visible on GitHub.
-- **Do not copy or adapt code with no explicit license.**
+- **Do not copy or adapt code with no explicit applicable license/permission.**
 - Verify the actual repository/file license before copying non-trivial code.
-- Preserve required copyright, attribution and license notices.
+- Preserve required copyright, attribution, license and NOTICE material.
 - Do not remove upstream attribution.
 - Prefer well-understood compatible licenses and established dependencies.
-- If license compatibility or obligations are unclear, stop and ask the user before integrating or copying the code.
+- If license compatibility or obligations are unclear, classify the source `reference-only` unless it is clearly unsuitable; ask the user before integrating or copying it.
 - Do not introduce an external project whose license would unexpectedly change Cliova's distribution obligations without explicit user approval.
+
+`docs/architecture/source-provenance.md` is the repository-native audit record for serious external candidates. Record at least the upstream project, exact revision/tag/version where practical, license/SPDX status, classification, intended reuse mode (`dependency`, `copied/adapted code`, `reference-only` or `rejected`), applicable attribution/NOTICE obligations and a short rationale/rejection reason.
+
+For substantial implementation PRs where external implementations were relevant, PR notes must summarize the candidates inspected, repository/version/revision, license verification, classification, chosen reuse path, copied/adapted/dependency details where applicable, attribution/NOTICE obligations and concrete rejection reasons. For every `reference-only` source that materially informed the work, explicitly confirm that its source was not copied, translated or adapted.
 
 Reuse is a strong default, **not** permission to add a huge or unsuitable dependency. Rejecting a candidate is valid when the mismatch is real and documented.
 
@@ -223,7 +269,7 @@ Before coding:
 - check listed dependencies and directly related issues when they affect the implementation;
 - inspect existing behavior/tests before replacing it;
 - identify whether the issue changes simulation truth, API contracts, persistence or only presentation;
-- for any substantial simulation mechanic or generic functionality, complete the mandatory OSS gate from section 5 **before committing to a from-scratch design**;
+- for any substantial simulation mechanic or generic functionality, complete the mandatory OSS gate from section 5, including source classification, **before committing to a from-scratch design**;
 - if the affected custom subsystem has never had a documented reuse comparison, do that comparison before materially extending it.
 
 During coding:
@@ -234,7 +280,8 @@ During coding:
 - avoid adding abstractions with no current use;
 - add comments only where intent is not clear from code;
 - keep configuration/constants centralized when behavior will need tuning;
-- preserve upstream attribution in any copied/adapted implementation.
+- preserve upstream attribution in any copied/adapted implementation;
+- keep reference-only implementation work separated from source expression by the section 5 neutral-specification workflow.
 
 If you discover a separate bug or improvement:
 
@@ -314,8 +361,10 @@ Keep names concise and tied to the GitHub issue.
 - Use a focused branch/PR for the issue when working through Git.
 - Keep commits and PR descriptions scoped to the requested work.
 - Include what changed, why, lightweight tests actually run, heavier/manual tests still recommended, assumptions and proposed follow-ups.
-- For substantial mechanics, include an **OSS reuse decision**: candidates inspected, license, selected source or concrete reasons for rejecting each serious candidate.
-- When third-party code or an external implementation influenced the solution, include the upstream project/source and license in the PR notes and preserve required source-level attribution.
+- For substantial mechanics, include an **OSS reuse decision**: serious candidates inspected, revision/version where practical, verified license status, classification, selected reuse path or concrete reasons for rejection, and applicable attribution/NOTICE obligations.
+- When a `licensed-reusable` implementation contributed code or a dependency, identify the upstream source and preserve required source-level attribution/notices.
+- When a `reference-only` implementation materially informed the work, state that it was reference-only and explicitly confirm that its source was not copied, translated or adapted.
+- Keep `docs/architecture/source-provenance.md` aligned with material external-source decisions so later reviewers do not need old chat history to reconstruct provenance.
 - Do not claim tests passed unless they were actually run.
 - Do not hide known failures.
 - Do not create unrelated follow-up issues automatically; propose them to the user.
@@ -329,9 +378,10 @@ A good contribution:
 - reads only enough repository context to make a correct decision;
 - asks rather than invents when product intent is genuinely unclear;
 - performs the copy/adapt-first OSS gate for substantial simulation mechanics and generic functionality;
-- inspects promising upstream implementation code rather than stopping at README-level inspiration;
-- verifies licensing/provenance before reusing external code;
-- writes substantial new mechanics from scratch only when checked alternatives are unsuitable and the decision is documented;
+- verifies source classification and licensing/provenance before treating external code as reusable;
+- inspects promising upstream implementations at the level permitted by their classification;
+- reuses compatible licensed foundations where practical and uses neutral-specification -> independent implementation for reference-only sources;
+- writes substantial new mechanics from scratch only when checked licensed alternatives are unsuitable and the decision is documented;
 - keeps authoritative simulation logic in the correct layer;
 - remains deterministic and explainable where simulation behavior is involved;
 - includes proportionate lightweight automated tests;
