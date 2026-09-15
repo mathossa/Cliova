@@ -60,9 +60,7 @@ def assert_world_domain_invariants(
 ) -> None:
     """Validate merged domain bounds, references and domain-owned uniqueness."""
     geography_ids = (
-        tuple(region.id for region in world.geography.regions)
-        if world.geography
-        else ()
+        tuple(region.id for region in world.geography.regions) if world.geography else ()
     )
     geography_set = set(geography_ids)
     _assert_unique(
@@ -346,20 +344,12 @@ def assert_world_domain_invariants(
 
 def _identity_snapshot(world: WorldState) -> DomainIdentitySnapshot:
     geography = (
-        _sorted_ids(region.id for region in world.geography.regions)
-        if world.geography
-        else ()
+        _sorted_ids(region.id for region in world.geography.regions) if world.geography else ()
     )
     population = (
-        _sorted_ids(item.region_id for item in world.population.regions)
-        if world.population
-        else ()
+        _sorted_ids(item.region_id for item in world.population.regions) if world.population else ()
     )
-    economy = (
-        _sorted_ids(item.region_id for item in world.economy.regions)
-        if world.economy
-        else ()
-    )
+    economy = _sorted_ids(item.region_id for item in world.economy.regions) if world.economy else ()
     governance = tuple(
         sorted(
             ((state.subject_id, state.region_id) for state in world.governance),
@@ -456,10 +446,7 @@ def _assert_reference(
             "valid-domain-reference",
             seed=seed,
             tick=tick,
-            detail=(
-                f"field={field} entity={_entity_label(value)} "
-                "is not in the referenced domain"
-            ),
+            detail=(f"field={field} entity={_entity_label(value)} is not in the referenced domain"),
         )
 
 
@@ -482,14 +469,9 @@ def _assert_range(
             invariant,
             seed=seed,
             tick=tick,
-            detail=(
-                f"entity={entity} field={field} value={value!r} "
-                f"expected={expected}"
-            ),
+            detail=(f"entity={entity} field={field} value={value!r} expected={expected}"),
         )
 
 
 def _fail(invariant: str, *, seed: int, tick: int, detail: str) -> None:
-    raise SimulationQualityError(
-        f"{invariant} failed: seed={seed} tick={tick}; {detail}"
-    )
+    raise SimulationQualityError(f"{invariant} failed: seed={seed} tick={tick}; {detail}")
