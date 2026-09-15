@@ -8,7 +8,10 @@ from fastapi import APIRouter, Depends, Query, Request, status
 from cliova.api.dependencies import get_repository
 from cliova.api.errors import ApiError
 from cliova.api.v1.models import (
+    AttentionItemsResponse,
     CreateDevelopmentWorldRequest,
+    DecisionOpportunityListResponse,
+    DecisionOpportunityStatusDto,
     DirectiveListResponse,
     DirectiveSubmissionRequest,
     EntityKindDto,
@@ -22,7 +25,9 @@ from cliova.api.v1.models import (
     WorldSummary,
 )
 from cliova.api.v1.projections import (
+    attention_item,
     authoritative_directives,
+    decision_opportunity,
     history_event,
     queued_directive,
     region_statuses,
@@ -30,6 +35,7 @@ from cliova.api.v1.projections import (
     world_list_item,
     world_summary,
 )
+from cliova.application.attention import DecisionResponseError
 from cliova.application.development import create_development_world, create_simulation_engine
 from cliova.application.scheduling import ScheduledTickService
 from cliova.application.worlds import WorldRepository
@@ -158,6 +164,36 @@ def get_history(
     )
 
 
+@router.get("/worlds/{world_id}/attention-items", response_model=AttentionItemsResponse)
+def get_attention_items(
+    world_id: UUID, repository: RepositoryDependency
+) -> AttentionItemsResponse:
+    return AttentionItemsResponse(
+        world_id=world_id,
+        items=tuple(attention_item(item) for item in repository.list_attention_items(world_id)),
+    )
+
+
+@router.get(
+    "/worlds/{world_id}/decision-opportunities",
+    response_model=DecisionOpportunityListResponse,
+)
+def get_decision_opportunities(
+    world_id: UUID,
+    repository: RepositoryDependency,
+    status_filter: Annotated[DecisionOpportunityStatusDto | None, Query(alias="status")] = "open",
+) -> DecisionOpportunityListResponse:
+    opportunities = repository.list_decision_opportunities(world_id)
+    if status_filter is not None:
+        opportunities = tuple(
+            opportunity for opportunity in opportunities if opportunity.status.value == status_filter
+        )
+    return DecisionOpportunityListResponse(
+        world_id=world_id,
+        opportunities=tuple(decision_opportunity(item) for item in opportunities),
+    )
+
+
 @router.get("/worlds/{world_id}/directives", response_model=DirectiveListResponse)
 def get_directives(world_id: UUID, repository: RepositoryDependency) -> DirectiveListResponse:
     world = repository.load_world(world_id)
@@ -199,10 +235,29 @@ def submit_directive(
             intent=request.intent,
             priority=request.priority,
         )
+        queued = (
+            repository.queue_decision_response(
+                world_id,
+                opportunity_id=request.decision_opportunity_id,
+                value=value,
+            )
+            if request.decision_opportunity_id is not None
+            else repository.queue_input(world_id, value)
+        )
+    except DecisionResponseError as exc:
+        conflict_codes = {
+            "decision_opportunity_expired",
+            "decision_opportunity_already_responded",
+        }
+        raise ApiError(
+            409 if exc.code in conflict_codes else 422,
+            exc.code,
+            str(exc),
+        ) from exc
     except ValueError as exc:
         raise ApiError(422, "invalid_directive", str(exc)) from exc
 
-    projection = queued_directive(repository.queue_input(world_id, value))
+    projection = queued_directive(queued)
     if projection is None:
         raise RuntimeError("authoritative directive input could not be projected")
     return projection
