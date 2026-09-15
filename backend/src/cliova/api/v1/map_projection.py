@@ -8,8 +8,8 @@ WorldEngine objects or asking the browser to reproduce simulation formulas.
 from collections.abc import Iterable
 from typing import cast
 
-from shapely.geometry import MultiPolygon, Polygon, box
-from shapely.ops import unary_union
+from shapely.geometry import MultiPolygon, Polygon, box  # type: ignore[import-untyped]
+from shapely.ops import unary_union  # type: ignore[import-untyped]
 
 from cliova.api.v1.models import (
     EntityKindDto,
