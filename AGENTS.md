@@ -270,6 +270,8 @@ Update documentation when the implementation materially changes:
 - developer setup;
 - agreed product/vision direction.
 
+Prefer extending an existing relevant vision/architecture document over creating a new one when it can hold the concept cleanly. Principle/design documents that explain one concept should remain concise and fit within roughly two printed pages; move deeper implementation detail to focused architecture/reference docs instead of growing the principle document indefinitely.
+
 Do not rewrite documentation that is unrelated to the issue.
 
 When code reveals that a vision document should change, treat material product changes as a design discussion rather than silently rewriting the product direction.
