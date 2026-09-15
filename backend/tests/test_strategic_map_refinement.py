@@ -1,6 +1,7 @@
 from uuid import UUID
 
 from cliova.api.v1.map_projection import _region_geometry, world_map_projection
+from cliova.api.v1.map_rendering import render_physical_base_svg
 from cliova.application.development import create_development_world
 from cliova.simulation.types import EntityId, RasterRun, RegionPresentationGeometry
 
@@ -24,7 +25,11 @@ def test_region_projection_dissolves_adjacent_raster_runs() -> None:
 
 
 def test_generated_development_world_populates_only_society_core_region() -> None:
-    world = create_development_world(seed=2402, world_key="map-habitation", generated_geography=True)
+    world = create_development_world(
+        seed=2402,
+        world_key="map-habitation",
+        generated_geography=True,
+    )
 
     assert world.geography is not None
     assert world.population is not None
@@ -49,3 +54,18 @@ def test_generated_development_world_populates_only_society_core_region() -> Non
         for region in projection.regions
         if region.id != relationship.core_region_id.value
     )
+
+
+def test_generated_world_uses_stylized_worldengine_terrain_base() -> None:
+    world = create_development_world(
+        seed=2403,
+        world_key="map-terrain",
+        generated_geography=True,
+    )
+
+    svg = render_physical_base_svg(world)
+
+    assert 'data-render-theme="stylized-strategic-terrain"' in svg
+    assert "data:image/png;base64," in svg
+    assert "terrain-grade" in svg
+    assert "terrain-texture" in svg
