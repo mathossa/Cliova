@@ -257,6 +257,93 @@ class EconomyDomainState(SimulationModel):
         raise KeyError(region_id)
 
 
+class InstitutionProfile(SimulationModel):
+    """Structural parameters, without political labels or a progression ladder."""
+
+    key: NonEmptyString
+    coordination_efficiency: UnitInterval
+    stress_resilience: UnitInterval
+    adaptation_rate: UnitInterval
+
+
+class GovernanceState(SimulationModel):
+    """One playable society/polity and its current presence, not territorial ownership.
+
+    All starting political values are explicitly supplied by the caller.
+    """
+
+    subject_id: EntityId
+    region_id: EntityId
+    institution: InstitutionProfile
+    legitimacy: UnitInterval
+    execution_capacity: UnitInterval
+    internal_resistance: UnitInterval
+
+    @model_validator(mode="after")
+    def validate_identity(self) -> "GovernanceState":
+        if self.subject_id.kind not in {"society", "polity"}:
+            raise ValueError("governance subject must identify a society or polity")
+        if self.region_id.kind != "region":
+            raise ValueError("governance presence must identify a region")
+        return self
+
+
+class CapabilityProgress(SimulationModel):
+    capability_key: NonEmptyString
+    proficiency: UnitInterval = 0.0
+
+
+class ExperienceTrack(SimulationModel):
+    key: NonEmptyString
+    amount: NonNegativeFloat = 0.0
+
+
+class SocietyKnowledgeState(SimulationModel):
+    """Knowledge travels with society identity; participation is not land ownership."""
+
+    society_id: EntityId
+    region_ids: tuple[EntityId, ...] = ()
+    capabilities: tuple[CapabilityProgress, ...] = ()
+    experience: tuple[ExperienceTrack, ...] = ()
+
+    @model_validator(mode="after")
+    def validate_knowledge(self) -> "SocietyKnowledgeState":
+        if self.society_id.kind != "society":
+            raise ValueError("knowledge requires a society ID")
+        if any(region.kind != "region" for region in self.region_ids):
+            raise ValueError("participation requires region IDs")
+        for keys in (
+            self.region_ids,
+            tuple(item.capability_key for item in self.capabilities),
+            tuple(item.key for item in self.experience),
+        ):
+            if len(keys) != len(set(keys)):
+                raise ValueError("knowledge keys and participation regions must be unique")
+        return self
+
+    def proficiency(self, key: str) -> float:
+        return next((c.proficiency for c in self.capabilities if c.capability_key == key), 0.0)
+
+    def practice(self, key: str) -> float:
+        return next((e.amount for e in self.experience if e.key == key), 0.0)
+
+
+class KnowledgeDomainState(SimulationModel):
+    societies: tuple[SocietyKnowledgeState, ...] = ()
+
+    @model_validator(mode="after")
+    def validate_societies(self) -> "KnowledgeDomainState":
+        ids = [society.society_id for society in self.societies]
+        if len(ids) != len(set(ids)):
+            raise ValueError("knowledge society IDs must be unique")
+        # Economy currently exposes whole-region activity only. Reject ambiguous
+        # attribution instead of crediting the same production to multiple societies.
+        regions = [region for society in self.societies for region in society.region_ids]
+        if len(regions) != len(set(regions)):
+            raise ValueError("regional economy participation must be unambiguous")
+        return self
+
+
 class WorldState(SimulationModel):
     """Authoritative aggregate; optional domain state keeps legacy snapshots loadable."""
 
@@ -267,6 +354,8 @@ class WorldState(SimulationModel):
     geography: GeographyState | None = None
     population: PopulationDomainState | None = None
     economy: EconomyDomainState | None = None
+    knowledge: KnowledgeDomainState | None = None
+    governance: tuple[GovernanceState, ...] = ()
 
     @model_validator(mode="after")
     def check_world_id(self) -> "WorldState":
@@ -283,6 +372,37 @@ class WorldState(SimulationModel):
         region_ids = {region.id for region in self.geography.regions}
         if any(population.region_id not in region_ids for population in self.population.regions):
             raise ValueError("population regions must reference regions in world geography")
+        return self
+
+    @model_validator(mode="after")
+    def validate_knowledge_regions(self) -> "WorldState":
+        if self.knowledge is not None:
+            regions = {region.id for region in self.geography.regions} if self.geography else set()
+            if any(
+                region not in regions
+                for society in self.knowledge.societies
+                for region in society.region_ids
+            ):
+                raise ValueError("knowledge participation must reference world geography")
+        return self
+
+    @model_validator(mode="after")
+    def validate_governance(self) -> "WorldState":
+        subjects = [state.subject_id for state in self.governance]
+        if len(subjects) != len(set(subjects)):
+            raise ValueError("governance subject IDs must be unique")
+        for state in self.governance:
+            if self.geography is None or state.region_id not in {
+                region.id for region in self.geography.regions
+            }:
+                raise ValueError("governance presence must reference world geography")
+            if self.population is None or self.economy is None:
+                raise ValueError("governance requires population and economy pressure inputs")
+            try:
+                self.population.region(state.region_id)
+                self.economy.region(state.region_id).resource("food")
+            except KeyError as exc:
+                raise ValueError("governance region requires population and food economy") from exc
         return self
 
     @property

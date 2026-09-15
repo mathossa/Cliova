@@ -8,6 +8,10 @@ Cliova simuleert niet alleen wat mensen **kunnen**, maar ook wat zij **willen, v
 
 Niet ieder individu wordt apart gesimuleerd. Bevolking bestaat uit groepen op basis van bijvoorbeeld regio, beroep, klasse, cultuur, geloof of politieke positie. Per groep kunnen leeftijdsopbouw, gezondheid, welvaart, onderwijs, mobiliteit en gezinsstructuren worden bijgehouden. Alleen historisch relevante personen worden individueel gemodelleerd.
 
+Bevolkingsgroepen hoeven niet één-op-één aan een regio vast te zitten. Een groep kan over meerdere regio’s verspreid zijn, terwijl meerdere groepen dezelfde regio delen. Migratie verplaatst daarom aantallen en aanwezigheid tussen regio’s; zij verandert niet automatisch identiteit, cultuur of politieke loyaliteit.
+
+Mobiliteit is onderdeel van de toestand van een bevolking. Een groep kan sedentair, seizoensgebonden mobiel of sterk migrerend zijn doordat ecologie, bestaanswijze, conflict, handel of instituties dat aantrekkelijk maken. Zulke patronen moeten kunnen ontstaan en verdwijnen zonder een vaste historische ladder van nomadisch naar gevestigd.
+
 ## Psychologische basis
 
 De gedragslaag kan geïnspireerd worden door echte psychologische theorieën, zonder te doen alsof deze exacte natuurwetten zijn. Belangrijke dimensies zijn onder meer autonomie, competentie, verbondenheid, veiligheid, status, rechtvaardigheid, vertrouwen, toekomstverwachting en ervaren betekenis. Ook relatieve achteruitgang en vergelijking met andere groepen zijn belangrijk: mensen reageren niet alleen op absolute welvaart.
