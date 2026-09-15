@@ -52,7 +52,7 @@ def economy_learning_inputs(
                 continue
             pressures = []
             experience = []
-            for resource, track in (("food", "cultivation"), ("metal_ore", "extraction")):
+            for resource in ("food", "metal_ore"):
                 outcome = next((r for r in economy.resources if r.resource == resource), None)
                 if outcome is None:
                     continue
@@ -79,25 +79,37 @@ def economy_learning_inputs(
                         cause_event_ids=causes,
                     )
                 )
-                activity = outcome.production
-                if resource == "food" and outcome.food_production:
-                    cultivation = next(
-                        (
-                            method
-                            for method in outcome.food_production
-                            if method.method == "cultivation"
-                        ),
-                        None,
-                    )
-                    activity = cultivation.output if cultivation is not None else 0.0
                 denominator = max(outcome.production, outcome.demand)
-                experience.append(
-                    ExperienceGain(
-                        track=track,
-                        amount=round(activity / denominator, 6) if denominator > 0 else 0,
-                        cause_event_ids=causes,
+                if resource == "food":
+                    methods = {method.method: method for method in outcome.food_production}
+                    for track, method in (
+                        ("cultivation", "cultivation"),
+                        ("pastoralism", "pastoralism"),
+                    ):
+                        activity = methods.get(method)
+                        experience.append(
+                            ExperienceGain(
+                                track=track,
+                                amount=(
+                                    round(activity.output / denominator, 6)
+                                    if activity is not None and denominator > 0
+                                    else 0.0
+                                ),
+                                cause_event_ids=causes,
+                            )
+                        )
+                else:
+                    experience.append(
+                        ExperienceGain(
+                            track="extraction",
+                            amount=(
+                                round(outcome.production / denominator, 6)
+                                if denominator > 0
+                                else 0.0
+                            ),
+                            cause_event_ids=causes,
+                        )
                     )
-                )
             inputs.append(
                 RegionalLearningInput(
                     society_id=society.society_id,
