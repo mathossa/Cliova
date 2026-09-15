@@ -3,6 +3,7 @@
 from cliova.simulation.domains.economy.domain import RESOURCE_KINDS
 from cliova.simulation.types import (
     EconomyDomainState,
+    FoodReserveState,
     RegionalEconomyState,
     ResourceEconomyState,
     WorldState,
@@ -27,7 +28,11 @@ def initialize_economy(world: WorldState) -> WorldState:
             RegionalEconomyState(
                 region_id=population.region_id,
                 resources=tuple(
-                    ResourceEconomyState(resource=resource) for resource in RESOURCE_KINDS
+                    ResourceEconomyState(
+                        resource=resource,
+                        food_reserves=FoodReserveState() if resource == "food" else None,
+                    )
+                    for resource in RESOURCE_KINDS
                 ),
             )
         )

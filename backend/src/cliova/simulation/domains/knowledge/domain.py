@@ -98,6 +98,16 @@ def economy_learning_inputs(
                         cause_event_ids=causes,
                     )
                 )
+                if resource == "food":
+                    experience.append(
+                        ExperienceGain(
+                            track="food",
+                            amount=(
+                                round(outcome.production / denominator, 6) if denominator > 0 else 0
+                            ),
+                            cause_event_ids=causes,
+                        )
+                    )
             inputs.append(
                 RegionalLearningInput(
                     society_id=society.society_id,
