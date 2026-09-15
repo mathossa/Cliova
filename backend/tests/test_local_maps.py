@@ -67,8 +67,12 @@ def _world_with_settlements():
 
 def test_local_map_projection_is_stable_and_uses_distinct_renderer_paths() -> None:
     world = _world_with_settlements()
-    permanent = next(item for item in world.settlements.settlements if item.archetype == "permanent")
-    camp = next(item for item in world.settlements.settlements if item.archetype != "permanent")
+    permanent = next(
+        item for item in world.settlements.settlements if item.archetype == "permanent"
+    )
+    camp = next(
+        item for item in world.settlements.settlements if item.archetype != "permanent"
+    )
 
     permanent_first = local_map_request(world, permanent.id.value)
     permanent_second = local_map_request(world, permanent.id.value)
@@ -104,7 +108,9 @@ def test_relevant_state_changes_fingerprint_without_reinterpreting_layout_seed()
     world = _world_with_settlements()
     settlement = world.settlements.settlements[0]
     first = local_map_request(world, settlement.id.value)
-    changed = settlement.model_copy(update={"population_estimate": settlement.population_estimate + 25})
+    changed = settlement.model_copy(
+        update={"population_estimate": settlement.population_estimate + 25}
+    )
     changed_world = world.model_copy(
         update={
             "settlements": world.settlements.model_copy(
