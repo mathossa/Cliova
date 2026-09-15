@@ -697,9 +697,7 @@ def _food_reserves_from_attributes(
     missing = [field for field in fields if f"food_reserve.{field}" not in values]
     if missing:
         raise ValueError(f"food reserve change missing fields: {missing}")
-    return FoodReserveState(
-        **{field: float(values[f"food_reserve.{field}"]) for field in fields}
-    )
+    return FoodReserveState(**{field: float(values[f"food_reserve.{field}"]) for field in fields})
 
 
 def _region_causes(context: TickContext, region_id: EntityId) -> tuple[UUID, ...]:
