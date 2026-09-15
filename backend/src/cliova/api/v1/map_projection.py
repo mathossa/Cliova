@@ -146,7 +146,8 @@ def world_map_projection(world: WorldState) -> WorldMapResponse:
 
     structure_counts: dict[EntityId, int] = {}
     for structure in world.settlements.structures:
-        structure_counts[structure.settlement_id] = structure_counts.get(structure.settlement_id, 0) + 1
+        settlement_id = structure.settlement_id
+        structure_counts[settlement_id] = structure_counts.get(settlement_id, 0) + 1
 
     settlements: list[SettlementMapMarker] = []
     for settlement in sorted(world.settlements.settlements, key=lambda item: item.id.value.hex):
