@@ -1,21 +1,125 @@
-// Frontend display model; a future API adapter maps shared contracts into this shape.
-// Marker coordinates describe artwork placement only.
-export type WorldSnapshot = {
+import type {
+  DirectivePriority,
+  DirectiveStatus,
+  DirectiveSubmissionRequest,
+  WorldListItem,
+} from "../../lib/api";
+
+export type DisplayTone = "neutral" | "positive" | "warning" | "critical";
+
+export type HistoryFeedItem = {
+  id: string;
+  time: string;
+  text: string;
+  tone: DisplayTone;
   source: string;
-  worldName: string;
-  year: number;
-  season: string;
-  nextTick: string;
-  treasury: string;
-  worldStatus: string;
-  connection: string;
-  feed: { time: string; text: string; tone: string }[];
-  selectedRegion: {
-    id: string; name: string; description: string; population: string;
-    primaryResource: string; administration: string; stability: string; conditions: string;
-  } | null;
-  mapMarkers: { id: string; label: string; x: number; y: number; kind: string }[];
-  metrics: { label: string; value: string; delta: string; detail: string; tone: string }[];
-  pressures: { label: string; severity: string }[];
+  causeCount: number;
 };
-export type WorldClient = { load: () => Promise<WorldSnapshot | null> };
+
+export type FoodView = {
+  foodSecurity: string;
+  production: string;
+  demand: string;
+  stockpile: string;
+  deficit: string;
+  shortageSeverity: string;
+};
+
+export type GovernanceView = {
+  legitimacy: string;
+  executionCapacity: string;
+  internalResistance: string;
+};
+
+export type SocietyView = {
+  id: string;
+  kind: "society" | "polity" | "unsupported";
+  label: string;
+  regionId: string;
+  population: string;
+  food: FoodView;
+  governance: GovernanceView;
+};
+
+export type RegionView = {
+  id: string;
+  label: string;
+  terrain: string;
+  biome: string;
+  population: string;
+  habitability: string;
+  waterAccess: string;
+  climatePressure: string;
+  food: FoodView;
+};
+
+export type PressureView = {
+  id: string;
+  label: string;
+  regionId: string;
+  milestone: string;
+  intensity: string;
+  ageTicks: number;
+  causeCount: number;
+};
+
+export type DirectiveQueueView = {
+  queueId: number;
+  submittedTick: number;
+  author: string;
+  targetId: string;
+  intent: string;
+  priority: DirectivePriority;
+};
+
+export type DirectiveView = {
+  id: string;
+  submittedTick: number;
+  author: string;
+  targetId: string;
+  intent: string;
+  priority: DirectivePriority;
+  status: DirectiveStatus;
+  progress: string;
+};
+
+export type WorldMetric = {
+  label: string;
+  value: string;
+  detail: string;
+  tone: DisplayTone;
+};
+
+export type WorldSnapshot = {
+  source: "api-v1";
+  id: string;
+  label: string;
+  tick: number;
+  year: number;
+  population: string;
+  foodShortageSeverity: string;
+  contractVersion: string;
+  connection: string;
+  regionCount: number;
+  societyCount: number;
+  feed: HistoryFeedItem[];
+  regions: RegionView[];
+  societies: SocietyView[];
+  metrics: WorldMetric[];
+  pressures: PressureView[];
+  pendingDirectives: DirectiveQueueView[];
+  directives: DirectiveView[];
+};
+
+export type CommandCenterActions = {
+  selectWorld: (worldId: string) => Promise<void>;
+  refresh: () => Promise<void>;
+  submitDirective: (request: DirectiveSubmissionRequest) => Promise<void>;
+  advanceDevelopmentTick: () => Promise<void>;
+};
+
+export type CommandCenterProps = {
+  world: WorldSnapshot;
+  worlds: WorldListItem[];
+  actions: CommandCenterActions;
+};
