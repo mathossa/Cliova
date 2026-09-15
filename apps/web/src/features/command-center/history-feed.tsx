@@ -5,7 +5,7 @@ export function HistoryFeed({ feed }: { feed: HistoryFeedItem[] }) {
     <section className="panel feed-panel">
       <div className="panel-heading compact">
         <div>
-          <span className="eyebrow">Authoritative history</span>
+          <span className="eyebrow">World history</span>
           <h2>Recent activity</h2>
         </div>
         <span className="live-badge">live</span>
@@ -18,8 +18,13 @@ export function HistoryFeed({ feed }: { feed: HistoryFeedItem[] }) {
             <div>
               <span className={`tone-${item.tone}`}>{item.text}</span>
               <small className="feed-meta">
-                {item.source}{item.causeCount > 0 ? ` · ${item.causeCount} causal link${item.causeCount === 1 ? "" : "s"}` : ""}
+                {item.causeCount > 0 ? `${item.causeCount} causal link${item.causeCount === 1 ? "" : "s"}` : "Recorded event"}
               </small>
+              <details className="feed-technical">
+                <summary>Technical details</summary>
+                <div><strong>Source:</strong> {item.source}</div>
+                <div>{item.technicalDetail}</div>
+              </details>
             </div>
           </div>
         ))}
