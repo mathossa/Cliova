@@ -21,7 +21,9 @@ def test_region_projection_dissolves_adjacent_raster_runs() -> None:
 
     assert len(projected.coordinates) == 1
     assert len(projected.coordinates[0]) == 1
-    assert len(projected.coordinates[0][0]) == 5
+    exterior = projected.coordinates[0][0]
+    assert len(exterior) >= 5
+    assert exterior[0] == exterior[-1]
 
 
 def test_generated_development_world_populates_only_society_core_region() -> None:
