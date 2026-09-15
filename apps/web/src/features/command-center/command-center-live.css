@@ -361,8 +361,12 @@
     height: 100%;
     min-height: 0;
     overflow: hidden;
-    grid-template-rows: minmax(0, 1fr) auto 108px;
+    grid-template-rows: 168px minmax(0, 1fr) 176px;
   }
+
+  .terminal-workspace > .terminal-console { grid-row: 1; }
+  .terminal-workspace > .region-panel { grid-row: 2; height: 100%; }
+  .terminal-workspace > .feed-panel { grid-row: 3; height: 100%; }
 
   .feed-panel {
     min-height: 0;
@@ -376,8 +380,23 @@
     overscroll-behavior: contain;
   }
 
-  .terminal-console { min-height: 0; overflow: hidden; }
-  .console-history { min-height: 0; }
+  .terminal-console {
+    min-height: 0;
+    overflow: hidden;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    gap: 8px;
+  }
+
+  .terminal-console form {
+    grid-row: 1;
+    min-height: 52px;
+    padding: 0 12px;
+    font-size: 13px;
+  }
+
+  .terminal-console form input { font-size: 13px; }
+  .terminal-console .console-history { grid-row: 2; min-height: 0; }
+  .terminal-console > small { grid-row: 3; margin-top: 0; }
 
   .data-column {
     grid-template-rows: minmax(0, 1fr) auto;
