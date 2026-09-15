@@ -1,4 +1,6 @@
 import type {
+  AttentionItemsResponse,
+  DecisionOpportunityListResponse,
   DirectiveListResponse,
   HistoryResponse,
   RegionStatusResponse,
@@ -22,13 +24,15 @@ export type CommandCenterBundle = {
   map: WorldMapResponse;
   history: HistoryResponse;
   directives: DirectiveListResponse;
+  attention: AttentionItemsResponse;
+  decisions: DecisionOpportunityListResponse;
 };
 
 const integerFormatter = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
 const decimalFormatter = new Intl.NumberFormat("en-US", { maximumFractionDigits: 3 });
 
 export function toWorldSnapshot(bundle: CommandCenterBundle): WorldSnapshot {
-  const { summary, regions, map, history, directives } = bundle;
+  const { summary, regions, map, history, directives, attention, decisions } = bundle;
   const population = formatInteger(summary.population_total);
   const shortage = formatNumber(summary.food_shortage_severity);
   const regionViews = regions.regions.map(toRegionView);
@@ -60,11 +64,37 @@ export function toWorldSnapshot(bundle: CommandCenterBundle): WorldSnapshot {
       id: pressure.id,
       label: formatLabel(pressure.key),
       regionId: pressure.region_id,
-      regionLabel: regionViews.find((region) => region.id === pressure.region_id)?.label ?? `Region ${shortId(pressure.region_id)}`,
+      regionLabel: regionViews.find((region) => region.id === pressure.region_id)?.label
+        ?? `Region ${shortId(pressure.region_id)}`,
       milestone: formatLabel(pressure.milestone),
       intensity: formatNumber(pressure.intensity),
       ageTicks: pressure.age_ticks,
       causeCount: pressure.cause_event_ids.length,
+    })),
+    attentionItems: attention.items.map((item) => ({
+      id: item.id,
+      targetLabel: item.target
+        ? directiveTargetLabel(item.target.id, societyViews)
+        : "World",
+      createdTick: item.created_tick,
+      createdYear: item.created_year,
+      category: formatLabel(item.category),
+      priority: item.priority,
+      context: item.context,
+      relatedEventIds: item.related_event_ids,
+    })),
+    decisionOpportunities: decisions.opportunities.map((opportunity) => ({
+      id: opportunity.id,
+      targetId: opportunity.target.id,
+      targetKind: opportunity.target.kind,
+      targetLabel: directiveTargetLabel(opportunity.target.id, societyViews),
+      createdTick: opportunity.created_tick,
+      category: formatLabel(opportunity.category),
+      context: opportunity.context,
+      earliestEffectTick: opportunity.earliest_effect_tick,
+      expiresAtTick: opportunity.expires_at_tick,
+      defaultBehavior: opportunity.default_behavior,
+      responseIntent: opportunity.response_intent,
     })),
     pendingDirectives: directives.pending.map((directive) => ({
       queueId: directive.queue_id,
@@ -94,7 +124,8 @@ function toSocietyView(society: SocietySummary, regions: RegionView[]): SocietyV
   const kind = society.subject.kind === "society" || society.subject.kind === "polity"
     ? society.subject.kind
     : "unsupported";
-  const regionLabel = regions.find((region) => region.id === society.region_id)?.label ?? `Region ${shortId(society.region_id)}`;
+  const regionLabel = regions.find((region) => region.id === society.region_id)?.label
+    ?? `Region ${shortId(society.region_id)}`;
   const kindLabel = kind === "unsupported" ? "Society" : formatLabel(kind);
   return {
     id: society.subject.id,
@@ -210,9 +241,25 @@ function humanHistoryText(kind: string, subject?: string): string {
 }
 
 function historyTone(kind: string): DisplayTone {
-  if (kind.includes("crisis") || kind.includes("shortage") || kind.includes("failed")) return "critical";
-  if (kind.includes("emerging") || kind.includes("elevated") || kind.includes("delayed") || kind.includes("resisted")) return "warning";
-  if (kind.includes("surplus") || kind.includes("recovering") || kind.includes("resolved") || kind.includes("completed")) return "positive";
+  if (kind.includes("crisis") || kind.includes("shortage") || kind.includes("failed")) {
+    return "critical";
+  }
+  if (
+    kind.includes("emerging")
+    || kind.includes("elevated")
+    || kind.includes("delayed")
+    || kind.includes("resisted")
+  ) {
+    return "warning";
+  }
+  if (
+    kind.includes("surplus")
+    || kind.includes("recovering")
+    || kind.includes("resolved")
+    || kind.includes("completed")
+  ) {
+    return "positive";
+  }
   return "neutral";
 }
 
@@ -222,16 +269,20 @@ function historySubjectLabel(
   regions: RegionView[],
   societies: SocietyView[],
 ): string | undefined {
-  if (kind === "region") return regions.find((region) => region.id === id)?.label ?? `Region ${shortId(id)}`;
+  if (kind === "region") {
+    return regions.find((region) => region.id === id)?.label ?? `Region ${shortId(id)}`;
+  }
   if (kind === "society" || kind === "polity") {
-    return societies.find((society) => society.id === id)?.label ?? `${formatLabel(kind)} ${shortId(id)}`;
+    return societies.find((society) => society.id === id)?.label
+      ?? `${formatLabel(kind)} ${shortId(id)}`;
   }
   if (kind === "world") return "The world";
   return undefined;
 }
 
 function directiveTargetLabel(targetId: string, societies: SocietyView[]): string {
-  return societies.find((society) => society.id === targetId)?.label ?? `Society ${shortId(targetId)}`;
+  return societies.find((society) => society.id === targetId)?.label
+    ?? `Society ${shortId(targetId)}`;
 }
 
 function normalizeKind(value: string): string {
