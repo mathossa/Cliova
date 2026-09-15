@@ -146,7 +146,10 @@ class ScheduledTickService:
         return tuple(results)
 
     def run_scheduled_world(self, world_id: UUID, *, now: datetime) -> TickResult | None:
-        """Try to claim and execute one due scheduled tick; duplicate/not-due attempts are no-ops."""
+        """Try to claim and execute one due scheduled tick.
+
+        Duplicate or not-yet-due attempts are safe no-ops.
+        """
 
         now = _aware_utc(now)
         claim = self._repository.claim_scheduled_tick(world_id, now=now)
