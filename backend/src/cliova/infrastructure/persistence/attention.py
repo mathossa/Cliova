@@ -54,9 +54,7 @@ class PostgresAttentionWorldRepository(PostgresScheduledWorldRepository):
             ).fetchall()
         return tuple(_attention_item(row) for row in rows)
 
-    def list_decision_opportunities(
-        self, world_id: UUID
-    ) -> tuple[DecisionOpportunity, ...]:
+    def list_decision_opportunities(self, world_id: UUID) -> tuple[DecisionOpportunity, ...]:
         with self._connect() as connection:
             self._require_world(connection, world_id)
             rows = connection.execute(
@@ -233,9 +231,7 @@ class PostgresAttentionWorldRepository(PostgresScheduledWorldRepository):
             return
         if len(result.events) < len(queued):
             raise PersistenceError("tick result is missing deterministic input ingest events")
-        for queued_item, ingest_event in zip(
-            queued, result.events[: len(queued)], strict=True
-        ):
+        for queued_item, ingest_event in zip(queued, result.events[: len(queued)], strict=True):
             response = connection.execute(
                 """
                 SELECT opportunity_id
@@ -283,9 +279,7 @@ class PostgresAttentionWorldRepository(PostgresScheduledWorldRepository):
                 item.priority.value,
                 item.context,
                 list(item.related_event_ids),
-                Jsonb(
-                    [subject.model_dump(mode="json") for subject in item.related_subjects]
-                ),
+                Jsonb([subject.model_dump(mode="json") for subject in item.related_subjects]),
             ),
         )
 
@@ -313,10 +307,7 @@ class PostgresAttentionWorldRepository(PostgresScheduledWorldRepository):
                 opportunity.context,
                 list(opportunity.related_event_ids),
                 Jsonb(
-                    [
-                        subject.model_dump(mode="json")
-                        for subject in opportunity.related_subjects
-                    ]
+                    [subject.model_dump(mode="json") for subject in opportunity.related_subjects]
                 ),
                 opportunity.earliest_effect_tick,
                 opportunity.expires_at_tick,
