@@ -8,6 +8,8 @@ De economie van Cliova moet vaste onderliggende regels hebben, maar geen vooraf 
 
 De kern simuleert productie, consumptie, arbeid, voorraden, transport, schaarste, handel en investeringen. Goederen hebben een oorsprong, hoeveelheid, locatie en eventueel houdbaarheid. Productie vereist arbeid, kennis, middelen en infrastructuur. Transport kost tijd en capaciteit. Schaarste moet gevolgen hebben, ongeacht welk economisch systeem een samenleving gebruikt.
 
+Voor voedsel gebruikt de huidige headless kern één downstream resource `food`, maar de productie daarvan is al verdeeld over vier generieke methoden: teelt, veeteelt/grazing, jagen/verzamelen en visserij/aquatische voedselwinning. Geografie bezit per methode het natuurlijke regionale potentieel. De economie verdeelt de beschikbare voedselarbeid één keer deterministisch over die mogelijkheden. Per methode is de daadwerkelijke opbrengst het minimum van wat arbeid plus relevante capaciteit/kennis kan produceren en wat de regio duurzaam kan leveren. Daardoor kan bij weinig bevolking arbeid de beperkende factor zijn, terwijl bij veel bevolking het regionale duurzame plafond bindt. De huidige verdeelgewichten, productiviteit en opbrengstschalen zijn gecentraliseerde voorlopige balanswaarden; latere tuning mag de modelgrens niet veranderen.
+
 ## Grondstoffen veranderen van betekenis
 
 De fysieke wereld bevat natuurlijke mogelijkheden die niet pas verschijnen wanneer een nieuw tijdperk begint. Een mineraal, vruchtbare bodem, bos of energiebron kan al aanwezig zijn terwijl een samenleving die nog niet kent, niet kan winnen of niet waardevol vindt. Kennis, infrastructuur, arbeid en vraag bepalen welke natuurlijke mogelijkheden economisch bruikbaar worden.
@@ -44,6 +46,6 @@ Vroege samenlevingen kunnen werken via wederkerigheid, ruil, tribuut of goederen
 
 ## Explainability
 
-Belangrijke veranderingen worden altijd met oorzaken opgeslagen. Een voedselreserve daalt bijvoorbeeld door slechte oogst, bevolkingsgroei, export en opslagverlies, niet door een onzichtbare modifier. De economie moet daardoor zowel speelbaar als debugbaar blijven.
+Belangrijke veranderingen worden altijd met oorzaken opgeslagen. Een voedselreserve daalt bijvoorbeeld door slechte oogst, bevolkingsgroei, export en opslagverlies, niet door een onzichtbare modifier. Voor voedsel bewaart de economie daarnaast per productiemethode hoeveel arbeid is toegewezen, de arbeid-/capaciteitsbegrensde opbrengst, het duurzame regionale plafond en de uiteindelijke opbrengst. Alleen betekenisvolle resource-events komen in de historie; deze diagnostiek creëert geen event per interne berekening.
 
 De economie is uiteindelijk geen verzameling vooraf gedefinieerde ideologieën, maar een **systeem van middelen, stromen en instituties waaruit economische orde ontstaat**.
