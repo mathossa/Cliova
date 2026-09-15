@@ -5,9 +5,6 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request, status
 
-from cliova.application.development import create_development_world, create_simulation_engine
-from cliova.application.persistence import PersistedTickService
-from cliova.application.worlds import WorldRepository
 from cliova.api.dependencies import get_repository
 from cliova.api.errors import ApiError
 from cliova.api.v1.models import (
@@ -33,6 +30,9 @@ from cliova.api.v1.projections import (
     world_list_item,
     world_summary,
 )
+from cliova.application.development import create_development_world, create_simulation_engine
+from cliova.application.persistence import PersistedTickService
+from cliova.application.worlds import WorldRepository
 from cliova.simulation.domains.directives import directive_input
 from cliova.simulation.types import EntityId
 
@@ -56,7 +56,9 @@ def create_world(
 
 @router.get("/worlds", response_model=WorldListResponse)
 def list_worlds(repository: RepositoryDependency) -> WorldListResponse:
-    return WorldListResponse(worlds=tuple(world_list_item(world) for world in repository.list_worlds()))
+    return WorldListResponse(
+        worlds=tuple(world_list_item(world) for world in repository.list_worlds())
+    )
 
 
 @router.get("/worlds/{world_id}", response_model=WorldSummary)
@@ -184,7 +186,11 @@ def submit_directive(
     world = repository.load_world(world_id)
     target = EntityId(kind=request.target.kind, value=request.target.id)
     if not any(state.subject_id == target for state in world.governance):
-        raise ApiError(422, "invalid_directive", "Directive target is not an active society/polity.")
+        raise ApiError(
+            422,
+            "invalid_directive",
+            "Directive target is not an active society/polity.",
+        )
 
     try:
         value = directive_input(
