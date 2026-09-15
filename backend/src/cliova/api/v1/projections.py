@@ -65,9 +65,7 @@ def pressure_statuses(world: WorldState) -> tuple[PressureStatus, ...]:
             id=pressure.id,
             key=pressure.key,
             region_id=pressure.region_id.value,
-            subject=(
-                entity_ref(pressure.subject_id) if pressure.subject_id is not None else None
-            ),
+            subject=(entity_ref(pressure.subject_id) if pressure.subject_id is not None else None),
             intensity=pressure.intensity,
             milestone=pressure.milestone,
             age_ticks=pressure.age_ticks,
