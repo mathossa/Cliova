@@ -59,8 +59,6 @@ class PopulationDomain:
         context: TickContext,
         rng: RandomSource,
     ) -> DomainResult:
-        del rng  # The first aggregate rules are deterministic without stochastic sampling.
-
         if world.population is None or not world.population.regions:
             return DomainResult(
                 diagnostics=(
@@ -81,7 +79,7 @@ class PopulationDomain:
         for population in world.population.regions:
             region = _region_by_id(world, population.region_id)
             causes = self._pressure_causes(context, population.region_id)
-            outcome = _calculate_outcome(population, region)
+            outcome = _calculate_outcome(population, region, rng)
             region_changes: list[SimulationChange] = []
 
             if outcome.net_change:
@@ -251,9 +249,21 @@ def _environment_stress(region: RegionState) -> float:
     )
 
 
+def _stochastic_count(expected: float, rng: RandomSource) -> int:
+    """Deterministically sample an integer count from a seeded fractional expectation."""
+    whole = int(expected)
+    fraction = expected - whole
+    return whole + int(rng.random() < fraction)
+
+
 def _calculate_outcome(
-    population: RegionalPopulationState, region: RegionState
+    population: RegionalPopulationState,
+    region: RegionState,
+    rng: RandomSource,
 ) -> DemographicOutcome:
+    if population.total == 0:
+        return DemographicOutcome(births=0, deaths=0, net_change=0, migration_pressure=0.0)
+
     needs = population.needs
     food_stress = 1.0 - needs.food_security
     material_stress = 1.0 - needs.material_security
@@ -277,8 +287,11 @@ def _calculate_outcome(
         + ENVIRONMENT_MORTALITY_WEIGHT * environment_stress,
     )
 
-    births = int(round(population.total * birth_rate))
-    deaths = min(population.total + births, int(round(population.total * mortality_rate)))
+    births = _stochastic_count(population.total * birth_rate, rng)
+    deaths = min(
+        population.total + births,
+        _stochastic_count(population.total * mortality_rate, rng),
+    )
     migration_pressure = round(
         min(
             1.0,
@@ -331,5 +344,7 @@ def _event_reason(
         f"deaths={outcome.deaths}, migration_pressure={outcome.migration_pressure:.3f}; "
         f"food_security={population.needs.food_security:.3f}, "
         f"material_security={population.needs.material_security:.3f}, "
-        f"health={population.needs.health:.3f}."
+        f"health={population.needs.health:.3f}, safety={population.needs.safety:.3f}, "
+        f"social_confidence={population.needs.social_confidence:.3f}, "
+        f"environment_stress={_environment_stress(region):.3f}."
     )
