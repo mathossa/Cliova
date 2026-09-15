@@ -29,6 +29,10 @@ export function CommandCenter({ world, worlds, actions }: CommandCenterProps) {
   const [actionError, setActionError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [ticking, setTicking] = useState(false);
+  const [showCreateWorld, setShowCreateWorld] = useState(false);
+  const [newWorldSeed, setNewWorldSeed] = useState("1");
+  const [creatingWorld, setCreatingWorld] = useState(false);
+  const [newWorldError, setNewWorldError] = useState<string | null>(null);
 
   const activeDefinition = modules.find((module) => module.id === activeModule) ?? modules[0]!;
   const selectedRegionView = world.regions.find((region) => region.id === selectedRegion) ?? world.regions[0] ?? null;
@@ -79,6 +83,26 @@ export function CommandCenter({ world, worlds, actions }: CommandCenterProps) {
     }
   }
 
+  async function createDevelopmentWorld(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const seed = Number(newWorldSeed);
+    if (!Number.isInteger(seed)) {
+      setNewWorldError("Seed must be an integer.");
+      return;
+    }
+
+    setNewWorldError(null);
+    setCreatingWorld(true);
+    try {
+      await actions.createWorld(seed);
+      setShowCreateWorld(false);
+    } catch (error) {
+      setNewWorldError(describeApiError(error));
+    } finally {
+      setCreatingWorld(false);
+    }
+  }
+
   return (
     <main className="command-center">
       <header className="cc-topbar">
@@ -86,8 +110,14 @@ export function CommandCenter({ world, worlds, actions }: CommandCenterProps) {
           <div className="brand-mark" aria-hidden="true">△</div>
           <div>
             <strong>CLIOVA</strong>
-            <span>WORLD COMMAND</span>
+            <span>SIMULATION LAB</span>
           </div>
+        </div>
+
+        <div className="operator-context" title="Development mode has world-wide access; player-to-society ownership is not active yet.">
+          <span>YOUR ROLE</span>
+          <strong>Development operator</strong>
+          <small>World-wide access · no society assignment</small>
         </div>
 
         <WorldStatus world={world} />
@@ -107,6 +137,9 @@ export function CommandCenter({ world, worlds, actions }: CommandCenterProps) {
               ))}
             </select>
           </label>
+          <button type="button" onClick={() => setShowCreateWorld(true)} disabled={refreshing || ticking}>
+            + New world
+          </button>
           <button type="button" onClick={() => void refresh()} disabled={refreshing || ticking}>
             {refreshing ? "Refreshing…" : "Refresh"}
           </button>
@@ -233,6 +266,32 @@ export function CommandCenter({ world, worlds, actions }: CommandCenterProps) {
         <span>Simulation Lab · live API v1 · contract {world.contractVersion}</span>
         <span>Explicit refresh · development manual tick · no realtime polling</span>
       </footer>
+
+      {showCreateWorld && (
+        <div className="new-world-backdrop" role="presentation">
+          <section className="panel new-world-dialog" role="dialog" aria-modal="true" aria-labelledby="new-world-title">
+            <div className="panel-heading compact">
+              <div>
+                <span className="eyebrow">Development world</span>
+                <h2 id="new-world-title">Create new world</h2>
+              </div>
+              <button type="button" className="dialog-close" onClick={() => setShowCreateWorld(false)} disabled={creatingWorld} aria-label="Close create world dialog">×</button>
+            </div>
+            <form className="new-world-form" onSubmit={createDevelopmentWorld}>
+              <p>Create another persisted development world. It will become the active world immediately.</p>
+              <label>
+                Seed
+                <input value={newWorldSeed} onChange={(event) => setNewWorldSeed(event.target.value)} inputMode="numeric" autoFocus />
+              </label>
+              {newWorldError && <p className="action-error" role="alert">{newWorldError}</p>}
+              <div className="dialog-actions">
+                <button type="button" onClick={() => setShowCreateWorld(false)} disabled={creatingWorld}>Cancel</button>
+                <button type="submit" disabled={creatingWorld}>{creatingWorld ? "Creating…" : "Create world"}</button>
+              </div>
+            </form>
+          </section>
+        </div>
+      )}
     </main>
   );
 }
