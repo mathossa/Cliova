@@ -25,7 +25,9 @@ export function CommandCenter({ world, worlds, actions }: CommandCenterProps) {
     "> status",
     `Connected to ${world.connection}. World ${world.id.slice(0, 8)} is at year ${world.year}, tick ${world.tick}.`,
   ]);
-  const [selectedRegion, setSelectedRegion] = useState(world.regions[0]?.id ?? "");
+  const [selectedRegion, setSelectedRegion] = useState(
+    world.societies[0]?.regionId ?? world.regions[0]?.id ?? "",
+  );
   const [actionError, setActionError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [ticking, setTicking] = useState(false);
@@ -35,7 +37,11 @@ export function CommandCenter({ world, worlds, actions }: CommandCenterProps) {
   const [newWorldError, setNewWorldError] = useState<string | null>(null);
 
   const activeDefinition = modules.find((module) => module.id === activeModule) ?? modules[0]!;
-  const selectedRegionView = world.regions.find((region) => region.id === selectedRegion) ?? world.regions[0] ?? null;
+  const societyRegionId = world.societies[0]?.regionId;
+  const selectedRegionView = world.regions.find((region) => region.id === selectedRegion)
+    ?? world.regions.find((region) => region.id === societyRegionId)
+    ?? world.regions[0]
+    ?? null;
   const selectedRegionId = selectedRegionView?.id ?? "";
 
   function submitCommand(event: FormEvent<HTMLFormElement>) {
