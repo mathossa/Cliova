@@ -3,6 +3,7 @@ import type {
   DirectiveStatus,
   DirectiveSubmissionRequest,
   WorldListItem,
+  WorldMapResponse,
 } from "../../lib/api";
 
 export type DisplayTone = "neutral" | "positive" | "warning" | "critical";
@@ -15,6 +16,7 @@ export type HistoryFeedItem = {
   source: string;
   technicalDetail: string;
   causeCount: number;
+  regionIds: string[];
 };
 
 export type FoodView = {
@@ -114,6 +116,7 @@ export type WorldSnapshot = {
   pressures: PressureView[];
   pendingDirectives: DirectiveQueueView[];
   directives: DirectiveView[];
+  map: WorldMapResponse;
 };
 
 export type CommandCenterActions = {
