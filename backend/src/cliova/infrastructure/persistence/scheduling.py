@@ -17,6 +17,7 @@ from cliova.application.scheduling import (
 )
 from cliova.infrastructure.persistence.postgres import (
     DbConnection,
+    DbRow,
     PersistenceError,
     TickConflictError,
 )
@@ -120,7 +121,8 @@ class PostgresScheduledWorldRepository(PostgresWorldRepository):
                 expected_tick = claim.target_tick - 1
                 if world.time.tick != expected_tick:
                     raise TickConflictError(
-                        f"world {claim.world_id} is at tick {world.time.tick}, expected {expected_tick}"
+                        f"world {claim.world_id} is at tick {world.time.tick}, "
+                        f"expected {expected_tick}"
                     )
 
                 queued = self._load_pending_inputs(
@@ -386,7 +388,7 @@ class PostgresScheduledWorldRepository(PostgresWorldRepository):
         *,
         world_id: UUID,
         run_id: UUID,
-        current: dict[str, object],
+        current: DbRow,
         now: datetime,
         trigger: TickRunTrigger,
         expected_tick: int | None,
@@ -497,7 +499,7 @@ class PostgresScheduledWorldRepository(PostgresWorldRepository):
         world_id: UUID,
         *,
         for_update: bool,
-    ) -> dict[str, object]:
+    ) -> DbRow:
         lock = " FOR UPDATE" if for_update else ""
         row = connection.execute(
             """
@@ -512,10 +514,10 @@ class PostgresScheduledWorldRepository(PostgresWorldRepository):
         ).fetchone()
         if row is None:
             raise PersistenceError(f"world {world_id} has no scheduling state")
-        return cast(dict[str, object], row)
+        return row
 
 
-def _schedule_state(row: dict[str, object]) -> WorldScheduleState:
+def _schedule_state(row: DbRow) -> WorldScheduleState:
     return WorldScheduleState(
         world_id=cast(UUID, row["world_id"]),
         status=WorldScheduleStatus(str(row["status"])),
@@ -529,7 +531,7 @@ def _schedule_state(row: dict[str, object]) -> WorldScheduleState:
     )
 
 
-def _tick_run_record(row: dict[str, object]) -> TickRunRecord:
+def _tick_run_record(row: DbRow) -> TickRunRecord:
     return TickRunRecord(
         run_id=cast(UUID, row["run_id"]),
         world_id=cast(UUID, row["world_id"]),
