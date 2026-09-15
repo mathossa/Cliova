@@ -1,10 +1,14 @@
 from __future__ import annotations
 
-from collections.abc import Hashable, Sequence
+from collections.abc import Hashable, Iterable
 from dataclasses import dataclass
 from math import isfinite
 
-from simulation_quality import HeadlessTrace, SimulationQualityError, assert_core_invariants
+from simulation_quality import (
+    HeadlessTrace,
+    SimulationQualityError,
+    assert_core_invariants,
+)
 
 from cliova.simulation.domains.knowledge import KnowledgeDomain
 from cliova.simulation.domains.politics import execution_strength
@@ -28,15 +32,9 @@ def assert_domain_stack_invariants(
     """Check invariants valid for the currently merged living domain stack."""
     assert_core_invariants(trace)
     expected_identity = _identity_snapshot(trace.initial_world)
+    worlds = (trace.initial_world, *(tick.world for tick in trace.run.ticks))
 
-    assert_world_domain_invariants(
-        trace.initial_world,
-        seed=trace.seed,
-        tick=trace.initial_world.time.tick,
-        knowledge_domain=knowledge_domain,
-    )
-    for tick_result in trace.run.ticks:
-        world = tick_result.world
+    for world in worlds:
         assert_world_domain_invariants(
             world,
             seed=trace.seed,
@@ -60,8 +58,12 @@ def assert_world_domain_invariants(
     tick: int,
     knowledge_domain: KnowledgeDomain,
 ) -> None:
-    """Validate bounded domain values, references and domain-owned uniqueness."""
-    geography_ids = tuple(region.id for region in world.geography.regions) if world.geography else ()
+    """Validate merged domain bounds, references and domain-owned uniqueness."""
+    geography_ids = (
+        tuple(region.id for region in world.geography.regions)
+        if world.geography
+        else ()
+    )
     geography_set = set(geography_ids)
     _assert_unique(
         geography_ids,
@@ -70,9 +72,9 @@ def assert_world_domain_invariants(
         seed=seed,
         tick=tick,
     )
-    if world.geography is not None:
+    if world.geography:
         _assert_unique(
-            tuple(region.key for region in world.geography.regions),
+            (region.key for region in world.geography.regions),
             invariant="unique-domain-entities",
             label="geography.region_key",
             seed=seed,
@@ -80,8 +82,8 @@ def assert_world_domain_invariants(
         )
 
     population_ids: tuple[EntityId, ...] = ()
-    if world.population is not None:
-        population_ids = tuple(population.region_id for population in world.population.regions)
+    if world.population:
+        population_ids = tuple(item.region_id for item in world.population.regions)
         _assert_unique(
             population_ids,
             invariant="unique-domain-entities",
@@ -89,18 +91,17 @@ def assert_world_domain_invariants(
             seed=seed,
             tick=tick,
         )
-        for population in world.population.regions:
-            entity = _entity_label(population.region_id)
+        for item in world.population.regions:
+            entity = _entity_label(item.region_id)
             _assert_reference(
-                population.region_id,
+                item.region_id,
                 geography_set,
-                invariant="valid-domain-reference",
                 field="population.region_id",
                 seed=seed,
                 tick=tick,
             )
             _assert_range(
-                population.total,
+                item.total,
                 lower=0.0,
                 upper=None,
                 invariant="population-bounds",
@@ -109,25 +110,25 @@ def assert_world_domain_invariants(
                 seed=seed,
                 tick=tick,
             )
-            for field in (
-                "food_security",
-                "material_security",
-                "safety",
-                "social_confidence",
-                "health",
-            ):
-                _assert_range(
-                    getattr(population.needs, field),
-                    lower=0.0,
-                    upper=1.0,
-                    invariant="population-bounds",
-                    field=f"population.needs.{field}",
-                    entity=entity,
-                    seed=seed,
-                    tick=tick,
-                )
+            _assert_fields(
+                item.needs,
+                (
+                    "food_security",
+                    "material_security",
+                    "safety",
+                    "social_confidence",
+                    "health",
+                ),
+                lower=0.0,
+                upper=1.0,
+                invariant="population-bounds",
+                prefix="population.needs",
+                entity=entity,
+                seed=seed,
+                tick=tick,
+            )
             _assert_range(
-                population.migration_pressure,
+                item.migration_pressure,
                 lower=0.0,
                 upper=1.0,
                 invariant="population-bounds",
@@ -138,8 +139,8 @@ def assert_world_domain_invariants(
             )
 
     economy_ids: tuple[EntityId, ...] = ()
-    if world.economy is not None:
-        economy_ids = tuple(economy.region_id for economy in world.economy.regions)
+    if world.economy:
+        economy_ids = tuple(item.region_id for item in world.economy.regions)
         _assert_unique(
             economy_ids,
             invariant="unique-domain-entities",
@@ -148,51 +149,49 @@ def assert_world_domain_invariants(
             tick=tick,
         )
         population_set = set(population_ids)
-        for economy in world.economy.regions:
-            entity = _entity_label(economy.region_id)
+        for item in world.economy.regions:
+            entity = _entity_label(item.region_id)
             _assert_reference(
-                economy.region_id,
+                item.region_id,
                 geography_set,
-                invariant="valid-domain-reference",
                 field="economy.region_id",
                 seed=seed,
                 tick=tick,
             )
             _assert_reference(
-                economy.region_id,
+                item.region_id,
                 population_set,
-                invariant="valid-domain-reference",
                 field="economy.inhabited_region_id",
                 seed=seed,
                 tick=tick,
             )
             _assert_unique(
-                tuple(resource.resource for resource in economy.resources),
+                (resource.resource for resource in item.resources),
                 invariant="unique-domain-entities",
                 label=f"economy.resources[{entity}]",
                 seed=seed,
                 tick=tick,
             )
-            for resource in economy.resources:
-                for field in (
-                    "production_capacity",
-                    "production",
-                    "demand",
-                    "consumed",
-                    "stockpile",
-                    "surplus",
-                    "deficit",
-                ):
-                    _assert_range(
-                        getattr(resource, field),
-                        lower=0.0,
-                        upper=None,
-                        invariant="economy-bounds",
-                        field=f"economy.{resource.resource}.{field}",
-                        entity=entity,
-                        seed=seed,
-                        tick=tick,
-                    )
+            for resource in item.resources:
+                _assert_fields(
+                    resource,
+                    (
+                        "production_capacity",
+                        "production",
+                        "demand",
+                        "consumed",
+                        "stockpile",
+                        "surplus",
+                        "deficit",
+                    ),
+                    lower=0.0,
+                    upper=None,
+                    invariant="economy-bounds",
+                    prefix=f"economy.{resource.resource}",
+                    entity=entity,
+                    seed=seed,
+                    tick=tick,
+                )
                 _assert_range(
                     resource.shortage_severity,
                     lower=0.0,
@@ -203,18 +202,18 @@ def assert_world_domain_invariants(
                     seed=seed,
                     tick=tick,
                 )
-
                 max_modifier = 1.0 + sum(
                     definition.effect.max_bonus
                     for definition in knowledge_domain.catalog
                     if definition.effect.resource == resource.resource
                 )
+                modifier = knowledge_domain.capability_modifier(
+                    world,
+                    item.region_id,
+                    resource.resource,
+                )
                 _assert_range(
-                    knowledge_domain.capability_modifier(
-                        world,
-                        economy.region_id,
-                        resource.resource,
-                    ),
+                    modifier,
                     lower=1.0,
                     upper=max_modifier,
                     invariant="knowledge-modifier-bounds",
@@ -236,52 +235,29 @@ def assert_world_domain_invariants(
     economy_set = set(economy_ids)
     for state in world.governance:
         entity = _entity_label(state.subject_id)
-        _assert_reference(
-            state.region_id,
-            geography_set,
-            invariant="valid-domain-reference",
-            field=f"governance.region_id[{entity}]",
-            seed=seed,
-            tick=tick,
-        )
-        _assert_reference(
-            state.region_id,
-            population_set,
-            invariant="valid-domain-reference",
-            field=f"governance.population_region[{entity}]",
-            seed=seed,
-            tick=tick,
-        )
-        _assert_reference(
-            state.region_id,
-            economy_set,
-            invariant="valid-domain-reference",
-            field=f"governance.economy_region[{entity}]",
-            seed=seed,
-            tick=tick,
-        )
-        for field in ("legitimacy", "execution_capacity", "internal_resistance"):
-            _assert_range(
-                getattr(state, field),
-                lower=0.0,
-                upper=1.0,
-                invariant="governance-bounds",
-                field=f"governance.{field}",
-                entity=entity,
+        for field, known in (
+            ("geography", geography_set),
+            ("population", population_set),
+            ("economy", economy_set),
+        ):
+            _assert_reference(
+                state.region_id,
+                known,
+                field=f"governance.{field}_region[{entity}]",
                 seed=seed,
                 tick=tick,
             )
-        for field in ("coordination_efficiency", "stress_resilience", "adaptation_rate"):
-            _assert_range(
-                getattr(state.institution, field),
-                lower=0.0,
-                upper=1.0,
-                invariant="governance-bounds",
-                field=f"governance.institution.{field}",
-                entity=entity,
-                seed=seed,
-                tick=tick,
-            )
+        _assert_fields(
+            state,
+            ("legitimacy", "execution_capacity", "internal_resistance"),
+            lower=0.0,
+            upper=1.0,
+            invariant="governance-bounds",
+            prefix="governance",
+            entity=entity,
+            seed=seed,
+            tick=tick,
+        )
         _assert_range(
             execution_strength(state),
             lower=0.0,
@@ -293,8 +269,8 @@ def assert_world_domain_invariants(
             tick=tick,
         )
 
-    if world.knowledge is not None:
-        society_ids = tuple(society.society_id for society in world.knowledge.societies)
+    if world.knowledge:
+        society_ids = tuple(item.society_id for item in world.knowledge.societies)
         _assert_unique(
             society_ids,
             invariant="unique-domain-entities",
@@ -302,13 +278,12 @@ def assert_world_domain_invariants(
             seed=seed,
             tick=tick,
         )
-        participation = tuple(
-            region_id
-            for society in world.knowledge.societies
-            for region_id in society.region_ids
-        )
         _assert_unique(
-            participation,
+            (
+                region_id
+                for society in world.knowledge.societies
+                for region_id in society.region_ids
+            ),
             invariant="unique-domain-entities",
             label="knowledge.participation_region",
             seed=seed,
@@ -327,13 +302,12 @@ def assert_world_domain_invariants(
                 _assert_reference(
                     region_id,
                     geography_set,
-                    invariant="valid-domain-reference",
                     field=f"knowledge.region_id[{entity}]",
                     seed=seed,
                     tick=tick,
                 )
             _assert_unique(
-                tuple(capability.capability_key for capability in society.capabilities),
+                (item.capability_key for item in society.capabilities),
                 invariant="unique-domain-entities",
                 label=f"knowledge.capabilities[{entity}]",
                 seed=seed,
@@ -351,7 +325,7 @@ def assert_world_domain_invariants(
                     tick=tick,
                 )
             _assert_unique(
-                tuple(experience.key for experience in society.experience),
+                (item.key for item in society.experience),
                 invariant="unique-domain-entities",
                 label=f"knowledge.experience[{entity}]",
                 seed=seed,
@@ -371,41 +345,70 @@ def assert_world_domain_invariants(
 
 
 def _identity_snapshot(world: WorldState) -> DomainIdentitySnapshot:
-    geography_regions = _sorted_ids(
-        region.id for region in world.geography.regions
-    ) if world.geography else ()
-    population_regions = _sorted_ids(
-        population.region_id for population in world.population.regions
-    ) if world.population else ()
-    economy_regions = _sorted_ids(
-        economy.region_id for economy in world.economy.regions
-    ) if world.economy else ()
-    governance_bindings = tuple(
+    geography = (
+        _sorted_ids(region.id for region in world.geography.regions)
+        if world.geography
+        else ()
+    )
+    population = (
+        _sorted_ids(item.region_id for item in world.population.regions)
+        if world.population
+        else ()
+    )
+    economy = (
+        _sorted_ids(item.region_id for item in world.economy.regions)
+        if world.economy
+        else ()
+    )
+    governance = tuple(
         sorted(
             ((state.subject_id, state.region_id) for state in world.governance),
             key=lambda item: _entity_sort_key(item[0]),
         )
     )
-    knowledge_bindings = tuple(
-        sorted(
-            (
-                (society.society_id, _sorted_ids(society.region_ids))
-                for society in world.knowledge.societies
-            ),
-            key=lambda item: _entity_sort_key(item[0]),
+    knowledge = (
+        tuple(
+            sorted(
+                (
+                    (society.society_id, _sorted_ids(society.region_ids))
+                    for society in world.knowledge.societies
+                ),
+                key=lambda item: _entity_sort_key(item[0]),
+            )
         )
-    ) if world.knowledge else ()
-    return DomainIdentitySnapshot(
-        geography_regions=geography_regions,
-        population_regions=population_regions,
-        economy_regions=economy_regions,
-        governance_bindings=governance_bindings,
-        knowledge_bindings=knowledge_bindings,
+        if world.knowledge
+        else ()
     )
+    return DomainIdentitySnapshot(geography, population, economy, governance, knowledge)
 
 
-def _sorted_ids(values: Sequence[EntityId] | object) -> tuple[EntityId, ...]:
-    return tuple(sorted(values, key=_entity_sort_key))  # type: ignore[arg-type]
+def _assert_fields(
+    value: object,
+    fields: tuple[str, ...],
+    *,
+    lower: float,
+    upper: float | None,
+    invariant: str,
+    prefix: str,
+    entity: str,
+    seed: int,
+    tick: int,
+) -> None:
+    for field in fields:
+        _assert_range(
+            getattr(value, field),
+            lower=lower,
+            upper=upper,
+            invariant=invariant,
+            field=f"{prefix}.{field}",
+            entity=entity,
+            seed=seed,
+            tick=tick,
+        )
+
+
+def _sorted_ids(values: Iterable[EntityId]) -> tuple[EntityId, ...]:
+    return tuple(sorted(values, key=_entity_sort_key))
 
 
 def _entity_sort_key(value: EntityId) -> tuple[str, str]:
@@ -417,7 +420,7 @@ def _entity_label(value: EntityId) -> str:
 
 
 def _assert_unique(
-    values: Sequence[Hashable],
+    values: Iterable[Hashable],
     *,
     invariant: str,
     label: str,
@@ -444,17 +447,19 @@ def _assert_reference(
     value: EntityId,
     known: set[EntityId],
     *,
-    invariant: str,
     field: str,
     seed: int,
     tick: int,
 ) -> None:
     if value not in known:
         _fail(
-            invariant,
+            "valid-domain-reference",
             seed=seed,
             tick=tick,
-            detail=f"field={field} entity={_entity_label(value)} is not in the referenced domain",
+            detail=(
+                f"field={field} entity={_entity_label(value)} "
+                "is not in the referenced domain"
+            ),
         )
 
 
@@ -477,9 +482,14 @@ def _assert_range(
             invariant,
             seed=seed,
             tick=tick,
-            detail=f"entity={entity} field={field} value={value!r} expected={expected}",
+            detail=(
+                f"entity={entity} field={field} value={value!r} "
+                f"expected={expected}"
+            ),
         )
 
 
 def _fail(invariant: str, *, seed: int, tick: int, detail: str) -> None:
-    raise SimulationQualityError(f"{invariant} failed: seed={seed} tick={tick}; {detail}")
+    raise SimulationQualityError(
+        f"{invariant} failed: seed={seed} tick={tick}; {detail}"
+    )
