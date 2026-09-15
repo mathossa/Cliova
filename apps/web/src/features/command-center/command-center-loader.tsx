@@ -59,6 +59,7 @@ export function CommandCenterLoader({ client = liveCommandCenterClient }: { clie
     const worldId = state.props.world.id;
     const actions: CommandCenterProps["actions"] = {
       selectWorld,
+      createWorld,
       refresh: async () => {
         const result = await client.load(worldId);
         setState(resolveLoadResult(result));
