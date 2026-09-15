@@ -31,7 +31,7 @@ from cliova.api.v1.projections import (
     world_summary,
 )
 from cliova.application.development import create_development_world, create_simulation_engine
-from cliova.application.persistence import PersistedTickService
+from cliova.application.scheduling import ScheduledTickService
 from cliova.application.worlds import WorldRepository
 from cliova.simulation.domains.directives import directive_input
 from cliova.simulation.types import EntityId
@@ -217,7 +217,7 @@ def advance_development_tick(
     request: ManualTickRequest,
     repository: RepositoryDependency,
 ) -> ManualTickResponse:
-    result = PersistedTickService(create_simulation_engine(), repository).advance_world(
+    result = ScheduledTickService(create_simulation_engine(), repository).advance_manual(
         world_id,
         expected_tick=request.expected_tick,
     )
